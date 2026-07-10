@@ -1,0 +1,194 @@
+/* ===========================================================================
+   Nook — design tokens (ported from the Nook design system) + globals
+   =========================================================================== */
+:root {
+  /* --- Neutrals: warm gray "ink & paper" ramp --------------------------- */
+  --gray-0: #ffffff;
+  --gray-25: #fbfbfa;
+  --gray-50: #f7f7f5;
+  --gray-100: #efefed;
+  --gray-150: #e9e9e7;
+  --gray-200: #e0e0dd;
+  --gray-300: #d3d3ce;
+  --gray-400: #b6b6b0;
+  --gray-500: #8f8f88;
+  --gray-600: #6b6b64;
+  --gray-700: #57564f;
+  --gray-800: #3c3b36;
+  --gray-900: #2b2a27;
+  --gray-1000: #1f1e1b;
+
+  /* --- Accent: calm blue ------------------------------------------------ */
+  --blue-50: #eaf2fb;
+  --blue-100: #d3e5f8;
+  --blue-300: #7fb4ec;
+  --blue-500: #2f7fe0;
+  --blue-600: #2570cb;
+  --blue-700: #1f5eac;
+  --blue-link: #3a7bd0;
+
+  /* --- Semantic hues (muted, Notion-flat) ------------------------------- */
+  --green-50: #e8f3ec;
+  --green-500: #2f9e63;
+  --green-600: #278052;
+  --amber-50: #fbf1e3;
+  --amber-500: #d98b2b;
+  --amber-600: #b8721f;
+  --red-50: #fbeceb;
+  --red-500: #d6473d;
+  --red-600: #b8382f;
+
+  /* --- Accent tints used for icon tiles / badges ------------------------ */
+  --tile-blue: #eaf2fb;
+  --tile-green: #e8f3ec;
+  --tile-amber: #fbf1e3;
+  --tile-red: #fbeceb;
+  --tile-gray: #f0f0ee;
+
+  /* ======================= Semantic aliases ============================= */
+  --text-primary: var(--gray-1000);
+  --text-secondary: var(--gray-700);
+  --text-tertiary: var(--gray-500);
+  --text-disabled: var(--gray-400);
+  --text-on-accent: #ffffff;
+  --text-link: var(--blue-link);
+  --text-accent: var(--blue-600);
+  --text-danger: var(--red-600);
+  --text-success: var(--green-600);
+
+  --surface-base: var(--gray-0);
+  --surface-canvas: var(--gray-25);
+  --surface-subtle: var(--gray-50);
+  --surface-hover: var(--gray-100);
+  --surface-active: var(--gray-150);
+  --surface-sidebar: #f5f5f3;
+  --surface-inverse: var(--gray-1000);
+
+  --border-subtle: var(--gray-150);
+  --border-default: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --border-focus: var(--blue-500);
+
+  --accent: var(--blue-500);
+  --accent-hover: var(--blue-600);
+  --accent-active: var(--blue-700);
+  --accent-subtle: var(--blue-50);
+
+  --focus-ring: rgba(47, 127, 224, 0.35);
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-sans: var(--font-pretendard), -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 40px;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+
+  /* --- Spacing / radii / shadows / motion ------------------------------- */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 15, 15, 0.05);
+  --shadow-sm: 0 1px 3px rgba(15, 15, 15, 0.08), 0 1px 2px rgba(15, 15, 15, 0.04);
+  --shadow-md: 0 3px 8px rgba(15, 15, 15, 0.09), 0 1px 3px rgba(15, 15, 15, 0.05);
+  --shadow-lg: 0 8px 24px rgba(15, 15, 15, 0.12), 0 2px 6px rgba(15, 15, 15, 0.06);
+  --shadow-popover: 0 0 0 1px rgba(15, 15, 15, 0.05), 0 6px 20px rgba(15, 15, 15, 0.16);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 90ms;
+  --duration-base: 140ms;
+  --duration-slow: 220ms;
+
+  --sidebar-width: 260px;
+  --content-max: 720px;
+}
+
+/* --- Reset --------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+body {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+button {
+  font-family: inherit;
+}
+
+/* Scrollbars — quiet, Notion-flat */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-200);
+  border-radius: 6px;
+  border: 2px solid var(--surface-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-300);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+/* Focus ring on text fields tagged .nk-inp */
+.nk-inp:focus {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}
