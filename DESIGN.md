@@ -517,10 +517,31 @@
   - 이메일 표시: `font-size: 13px; color: var(--text-tertiary)`
 - **필드 라벨** (`별명` / `이메일`): `font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px`
 - **별명 입력**: `.nk-inp`; `width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary); background: var(--surface-base); margin-bottom: 18px; transition: box-shadow .15s, border-color .15s` — placeholder `별명`. 입력 즉시 상태 반영(레일 아바타 이니셜 등 실시간 갱신)
-- **이메일 입력 (disabled)**: `width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; color: var(--text-tertiary); background: var(--surface-subtle); margin-bottom: 30px` — 항상 비활성(수정 불가)
+- **이메일 입력 (disabled)**: `width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; color: var(--text-tertiary); background: var(--surface-subtle); margin-bottom: 18px` — 항상 비활성(수정 불가)
+- **자기소개 라벨** (`자기소개`): `<label for="nk-intro">` 요소 — 필드 라벨 공통 스타일 + `display: block`
+- **자기소개 입력**: `<textarea id="nk-intro">` `.nk-inp`; `width: 100%; min-height: 120px; resize: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; line-height: 1.6; color: var(--text-primary); background: var(--surface-base); display: block; margin-bottom: 6px; transition: box-shadow .15s, border-color .15s`
+  - placeholder: `자신을 소개하는 글을 남겨보세요` (미등록 상태)
+  - 값은 DB(`profile.introduction`)가 단일 원천 — localStorage에 저장하지 않음.
+    마이페이지는 스토어 하이드레이션 **및 자기소개 조회 완료** 전까지 기존 로딩
+    화면(`flex: 1; background: var(--surface-base)` 빈 div)을 유지한다
+  - 저장 시 앞뒤 공백·줄바꿈만 있으면 미등록(null)으로 정규화. 줄바꿈·이모지는 그대로 보존
+  - **불러오기 실패 상태**: textarea `disabled` + placeholder 미표시(미등록과 오인 방지),
+    카운터 자리에 오류 문구 `자기소개를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.`
+    (`font-size: 13px; color: var(--text-danger); margin-bottom: 30px`) — 이 상태에서 저장 버튼은 자기소개를 전송하지 않음
+- **자기소개 글자 수 카운터**: textarea 바로 아래 우측 정렬 행 —
+  `display: flex; justify-content: flex-end; font-size: 12px; margin-bottom: 30px`
+  - 내용: `{countChars(값)}/500자` (`lib/chars.ts` — 글자 수 배지와 동일한 grapheme 단위)
+  - 색: 500자 이내 `var(--text-tertiary)` / 500자 초과(레거시 저장본) `var(--text-danger)`
+  - 한도 동작: 500자 초과가 되는 입력은 무시(짧아지는 편집은 항상 허용).
+    500자 초과 저장본은 조회 시 전체를 그대로 표시하며 잘라내지 않는다.
+    초과 상태로 저장 시도 시 요청 없이 안내 문구 `자기소개는 500자까지 저장할 수 있어요.` 표시
 - **`변경 사항 저장` 버튼**: `height: 40px; padding: 0 18px; border: none; border-radius: var(--radius-sm); color: #fff; font-size: 14px; font-weight: 500; transition: background var(--duration-fast) var(--ease-standard)` — default `var(--accent)` / hover `var(--accent-hover)`
-  - 클릭 시 실제 저장 동작은 없음(입력 즉시 저장되는 구조) — 저장 확인 플래시만 트리거
+  - 클릭 시 자기소개를 `PUT /api/profile/introduction`으로 저장하고, **성공 시에만** 저장 확인 플래시를 트리거 (별명·프로필 이미지는 기존대로 입력 즉시 저장)
 - **저장 확인 문구**: `저장되었습니다 ✓` — `font-size: 13px; color: var(--text-success)`, 버튼 우측 `gap: 14px`, 1.5초 후 사라짐. 등장/퇴장 애니메이션 없음
+- **저장 오류 문구**: 버튼 우측(확인 문구와 같은 자리) — `font-size: 13px; color: var(--text-danger)`.
+  다음 저장 시도 시 제거. 상황별 한국어 문구:
+  - 500자 초과 저장 시도: `자기소개는 500자까지 저장할 수 있어요.` (요청 미발생)
+  - 저장 실패(네트워크/DB): `저장에 실패했습니다. 잠시 후 다시 시도해 주세요.` — 입력값은 유지되어 재시도 가능
 
 ### 4.7 아이콘 (`components/icons.tsx`)
 
@@ -572,7 +593,8 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    글을 전환하면 열려 있던 팝오버(이모지·커버·삭제 확인)는 모두 닫힘. Esc 닫기 미구현
 6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환. 선택 상태도 localStorage에 영속
 7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력·이미지 업로드는
-   입력 즉시 반영·저장, `변경 사항 저장` 버튼은 확인 플래시용
+   입력 즉시 반영·저장. 자기소개는 진입 시 DB에서 조회해 표시하고, `변경 사항 저장`
+   버튼 클릭 시 DB에 저장(성공 시에만 확인 플래시)
 8. **데이터**:
    - 최초 방문(저장된 글 없음) 시 시드 5개 자동 생성 — 제목: `미니 노션 PRD 정리`(🗺️, blue 커버),
      `Google OAuth 2.0 연동 기록`(⚙️), `React로 /page 슬래시 명령 구현`(🧩),
