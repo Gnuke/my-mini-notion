@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNook } from "@/lib/store";
-import { COVERS, CoverKey, EMOJIS, rel } from "@/lib/data";
+import { rel } from "@/lib/data";
 import { countChars } from "@/lib/chars";
 
 /** Invisible full-screen layer that closes an open popover on outside click. */
@@ -17,10 +17,8 @@ function Backdrop({ onClose }: { onClose: () => void }) {
 }
 
 export default function Editor() {
-  const { active, patch, remove, profile, saved } = useNook();
+  const { active, patch, remove, profile, saved, saveFailed } = useNook();
   const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const [coverOpen, setCoverOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [delHover, setDelHover] = useState(false);
 
@@ -40,14 +38,23 @@ export default function Editor() {
 
   // Reset transient UI when switching posts.
   useEffect(() => {
-    setEmojiOpen(false);
-    setCoverOpen(false);
     setConfirmDel(false);
   }, [id]);
 
   if (!active) return null;
 
   const initial = (profile.nickname || "?").trim().charAt(0) || "?";
+
+  // 저장 표시 상태 머신 (contracts/page-ui.md §2.3) — "저장됨 ✓"는 서버
+  // 저장이 성공한 뒤에만 켜진다 (FR-012).
+  const saveLabel =
+    saveFailed === "delete"
+      ? "삭제 실패"
+      : saveFailed === "update"
+      ? "저장 실패"
+      : saved
+      ? "저장됨 ✓"
+      : "자동 저장";
 
   return (
     <div
@@ -82,8 +89,15 @@ export default function Editor() {
           내 글 › {active.title || "제목 없음"}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-            {saved ? "저장됨 ✓" : "자동 저장"}
+          <span
+            style={{
+              fontSize: 12,
+              color: saveFailed
+                ? "var(--text-danger)"
+                : "var(--text-tertiary)",
+            }}
+          >
+            {saveLabel}
           </span>
           <div style={{ position: "relative" }}>
             <button
@@ -182,165 +196,7 @@ export default function Editor() {
 
       {/* Scroll region */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {/* Cover */}
-        {active.cover && (
-          <div
-            style={{
-              position: "relative",
-              height: 150,
-              background: COVERS[active.cover],
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                right: 18,
-                bottom: 12,
-                display: "flex",
-                gap: 8,
-              }}
-            >
-              <button
-                onClick={() => setCoverOpen((v) => !v)}
-                style={coverBtnStyle}
-              >
-                커버 변경
-              </button>
-              <button
-                onClick={() => patch({ cover: null })}
-                style={coverBtnStyle}
-              >
-                삭제
-              </button>
-            </div>
-            {coverOpen && (
-              <>
-                <Backdrop onClose={() => setCoverOpen(false)} />
-                <div
-                  style={{
-                    position: "absolute",
-                    right: 18,
-                    bottom: 46,
-                    zIndex: 20,
-                    background: "var(--surface-base)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-lg)",
-                    boxShadow: "var(--shadow-lg)",
-                    padding: 9,
-                    display: "flex",
-                    gap: 7,
-                  }}
-                >
-                  {(Object.keys(COVERS) as CoverKey[]).map((k) => (
-                    <button
-                      key={k}
-                      onClick={() => {
-                        patch({ cover: k });
-                        setCoverOpen(false);
-                      }}
-                      style={{
-                        width: 36,
-                        height: 26,
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid rgba(0,0,0,.08)",
-                        cursor: "pointer",
-                        background: COVERS[k],
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 56px 140px" }}>
-          {!active.cover && (
-            <div style={{ paddingTop: 18 }}>
-              <button
-                onClick={() => patch({ cover: "blue" })}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text-tertiary)",
-                  fontSize: 13,
-                  cursor: "pointer",
-                  padding: "4px 6px",
-                  borderRadius: "var(--radius-sm)",
-                }}
-              >
-                🖼 커버 추가
-              </button>
-            </div>
-          )}
-
-          {/* Emoji + picker */}
-          <div style={{ position: "relative", width: "max-content" }}>
-            <div
-              onClick={() => setEmojiOpen((v) => !v)}
-              style={{
-                fontSize: 58,
-                lineHeight: 1,
-                cursor: "pointer",
-                userSelect: "none",
-                marginTop: active.cover ? -44 : 12,
-                marginBottom: 6,
-              }}
-            >
-              {active.emoji}
-            </div>
-            {emojiOpen && (
-              <>
-                <Backdrop onClose={() => setEmojiOpen(false)} />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 70,
-                    left: 0,
-                    zIndex: 20,
-                    background: "var(--surface-base)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-lg)",
-                    boxShadow: "var(--shadow-lg)",
-                    padding: 8,
-                    display: "grid",
-                    gridTemplateColumns: "repeat(8, 1fr)",
-                    gap: 2,
-                    width: 296,
-                  }}
-                >
-                  {EMOJIS.map((em) => (
-                    <button
-                      key={em}
-                      onClick={() => {
-                        patch({ emoji: em });
-                        setEmojiOpen(false);
-                      }}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        fontSize: 20,
-                        padding: 5,
-                        borderRadius: "var(--radius-md)",
-                        cursor: "pointer",
-                        lineHeight: 1,
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background =
-                          "var(--surface-hover)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
           {/* Title */}
           <input
             value={active.title}
@@ -357,7 +213,7 @@ export default function Editor() {
               letterSpacing: "var(--tracking-tight)",
               color: "var(--text-primary)",
               padding: 0,
-              margin: "2px 0 8px",
+              margin: "12px 0 8px",
             }}
           />
 
@@ -401,7 +257,7 @@ export default function Editor() {
             </span>
             <span>{profile.nickname}</span>
             <span>·</span>
-            <span>{rel(active.updated)} 편집됨</span>
+            <span>{rel(active.created)} 작성됨</span>
           </div>
 
           {/* Body */}
@@ -454,13 +310,3 @@ export default function Editor() {
     </div>
   );
 }
-
-const coverBtnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,.92)",
-  border: "1px solid var(--border-subtle)",
-  borderRadius: "var(--radius-sm)",
-  fontSize: 12,
-  color: "var(--text-secondary)",
-  padding: "4px 9px",
-  cursor: "pointer",
-};

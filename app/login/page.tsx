@@ -121,7 +121,7 @@ export default function LoginPage() {
             color: "var(--text-tertiary)",
           }}
         >
-          로그인하면 내 글이 이 브라우저에 안전하게 저장됩니다.
+          로그인하면 내 글이 내 계정에 안전하게 저장됩니다.
         </p>
       </div>
     </main>

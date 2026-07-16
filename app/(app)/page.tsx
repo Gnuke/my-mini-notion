@@ -6,12 +6,7 @@ import Editor from "@/components/Editor";
 import EmptyState from "@/components/EmptyState";
 
 export default function WorkspacePage() {
-  const { loaded, active } = useNook();
-
-  // Wait for the client-side store to hydrate before rendering data-driven UI.
-  if (!loaded) {
-    return <div style={{ flex: 1, background: "var(--surface-base)" }} />;
-  }
+  const { loading, loadError, active } = useNook();
 
   return (
     <>
@@ -26,7 +21,9 @@ export default function WorkspacePage() {
           overflow: "hidden",
         }}
       >
-        {active ? <Editor /> : <EmptyState />}
+        {/* 로딩·조회 실패 안내는 목록 영역이 담당한다 (FR-011). 로딩이 끝난
+            뒤에야 에디터 또는 빈 상태를 보여준다. */}
+        {loading || loadError ? null : active ? <Editor /> : <EmptyState />}
       </div>
     </>
   );

@@ -284,7 +284,9 @@
 
 - 앱 셸(`(app)/layout.tsx`): `height: 100vh; display: flex; background: var(--surface-base); color: var(--text-primary); overflow: hidden`
 - 인증 확인 전: 내용 없는 `<div style="height: 100vh; background: var(--surface-canvas)">` (앱 플래시 방지)
-- 스토어 하이드레이션 전(`page.tsx`): `<div style="flex: 1; background: var(--surface-base)">`
+- 서버 목록 로딩·조회 실패 동안(`page.tsx`): 3열은 빈
+  `<div style="flex: 1; background: var(--surface-base)">` — 로딩·오류 안내는
+  2열 글 목록 패널이 담당 (§4.2)
 - 1열 아이콘 레일: `width: 60px; flex: none` — 스크롤 없음, 세로 flex
 - 2열 글 목록: `width: 256px; flex: none` — 목록 영역만 `overflow-y: auto`
 - 3열 에디터 영역: `flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden` —
@@ -294,7 +296,7 @@
 ### 3.3 글 상세 (에디터 — 3열 내부)
 
 - 세로 구성: **탑바(높이 44px, flex: none)** → **스크롤 영역(flex: 1, overflow-y: auto)**
-- 스크롤 영역 내부: (커버 있으면) 커버 밴드 `height: 150px` → 본문 컬럼
+- 스크롤 영역 내부: 본문 컬럼 (커버 밴드는 002 기능에서 제거됨)
 - 본문 컬럼: `max-width: 720px; margin: 0 auto; padding: 0 56px 140px`
 
 ### 3.4 마이 페이지 (`/mypage`)
@@ -363,10 +365,22 @@
 
 **구분선**: `height: 1px; background: var(--border-subtle); margin: 2px 12px 8px`
 
-**목록 영역**: `flex: 1; overflow-y: auto; padding: 0 8px 14px`
-- 정렬: `updated` 내림차순(최신순) 고정
+**생성 실패 안내 (구분선 아래, 목록 영역 위)**: `newPost` 서버 등록이 실패하면
+한 줄 안내를 표시 — `padding: 0 12px 8px; font-size: 12px; color: var(--text-danger)`,
+문구 `새 글을 만들지 못했어요.` 다음 등록 성공 시 사라짐.
 
-**목록 항목 행**:
+**목록 영역**: `flex: 1; overflow-y: auto; padding: 0 8px 14px`
+- 정렬: `created`(생성 시각) 내림차순(최신 생성 순) 고정
+- **로딩 상태**: 서버에서 목록을 불러오는 동안 빈 상태와 동일한 블록 스타일
+  (`padding: 22px 12px; text-align: center; color: var(--text-tertiary);
+  font-size: 13px; line-height: 1.6`)로 `불러오는 중…` 표시. 로딩 중에는
+  행·빈 상태 문구를 렌더하지 않음
+- **조회 실패 상태**: 같은 블록 스타일로 `글을 불러오지 못했어요.` +
+  `다시 시도` 버튼(`＋ 새 글` 버튼과 동일 스타일: height 28px, padding 0 11px,
+  radius sm, `--accent`/hover `--accent-hover`, #fff, 13px/500,
+  `margin-top: 10px`). 클릭 시 재조회
+
+**목록 항목 행** (이모지 없음 — 제목·메타 줄만):
 - 공통: `display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; cursor: pointer; border-radius: var(--radius-md); margin-bottom: 1px`
 
 | 상태 | 배경 | 추가 효과 |
@@ -376,12 +390,12 @@
 | 선택됨 | `var(--tile-blue)` | `box-shadow: inset 2.5px 0 0 var(--accent)` (좌측 액센트 바) |
 | focus | 미구현 (div, 키보드 접근 불가) | |
 
-- 이모지: `font-size: 17px; line-height: 1.3; flex: none`
 - 제목: `font-size: 14px; color: var(--text-primary); margin-bottom: 2px` — 1줄 말줄임
   (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis`). 빈 제목 → `제목 없음`
 - 메타 줄: `font-size: 12px; color: var(--text-tertiary)` — 1줄 말줄임.
-  형식: `{상대 시간} · {본문 미리보기}` — 미리보기는 본문의 연속 개행을 공백으로 치환하고
-  trim 후 앞 40자. 본문 비어 있으면 `내용 없음`
+  형식: `{상대 시간} · {본문 미리보기}` — 상대 시간은 **생성 시각(`created`) 기준**.
+  미리보기는 본문의 연속 개행을 공백으로 치환하고 trim 후 앞 40자.
+  본문 비어 있으면 `내용 없음`
 
 **시간 표기 규칙** (`lib/data.ts`의 `rel()` — 목록·에디터 공용):
 
@@ -408,8 +422,18 @@
 - **브레드크럼**: `font-size: 13px; color: var(--text-tertiary)` — 1줄 말줄임.
   형식: `내 글 › {제목 || 제목 없음}`
 - 우측 그룹 (`gap: 14px`):
-  - **저장 표시**: `font-size: 12px; color: var(--text-tertiary)` —
-    저장 직후 1.5초간 `저장됨 ✓`, 평상시 `자동 저장`
+  - **저장 표시** (`font-size: 12px`) — 상태 4종. "저장됨 ✓"는 **서버 저장이
+    성공한 뒤에만** 표시(낙관적 표시 금지):
+
+    | 상태 | 조건 | 문구 | 색 |
+    | --- | --- | --- | --- |
+    | 평상시 | 기본 | `자동 저장` | `var(--text-tertiary)` |
+    | 저장됨 | 서버 저장 성공 직후 1.5초 | `저장됨 ✓` | `var(--text-tertiary)` |
+    | 저장 실패 | 서버 수정(update) 실패 | `저장 실패` | `var(--text-danger)` |
+    | 삭제 실패 | 서버 삭제(delete) 실패 | `삭제 실패` | `var(--text-danger)` |
+
+    실패 상태에서도 편집 중 내용은 화면에 유지되며, 다음 서버 저장 성공 시
+    평상시로 복귀
   - **삭제 버튼**: `삭제` — `font-size: 13px; color: var(--text-danger); padding: 4px 8px; border-radius: var(--radius-sm); border: none; gap: 5px(inline-flex)`
     — default 배경 `transparent` / hover `var(--red-50)` / 클릭 → 확인 팝오버 열림
 
@@ -423,40 +447,16 @@
   - **취소**: `background: var(--surface-base); border: 1px solid var(--border-strong); color: var(--text-primary); font-size: 13px; padding: 5px 11px; border-radius: var(--radius-sm)`
   - **삭제**(확정): `background: var(--red-500); border: none; color: #fff;` 나머지 동일
   - 두 버튼 hover 스타일 미구현
+- 확정 시 서버 삭제가 **성공한 뒤에만** 글이 목록에서 제거된다. 실패하면 글이
+  유지되고 탑바 저장 표시가 `삭제 실패`로 바뀐다
 
-#### 커버
-
-- 커버 밴드(커버 설정 시): `position: relative; height: 150px; background: {커버색}`
-- 커버 팔레트 (`lib/data.ts` `COVERS`):
-
-| 키 | 값 |
-| --- | --- |
-| `blue` | `#dbe8f8` |
-| `green` | `#dcefe2` |
-| `amber` | `#f7ebd6` |
-| `red` | `#f7dedb` |
-| `gray` | `#e9e9e6` |
-
-- 밴드 우하단 버튼 그룹: `right: 18px; bottom: 12px; gap: 8px` — `커버 변경` / `삭제`
-  - 공통 스타일(coverBtnStyle): `background: rgba(255,255,255,.92); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); padding: 4px 9px` — hover 스타일 미구현
-- **커버 피커 팝오버**: `position: absolute; right: 18px; bottom: 46px; z-index: 20; background: var(--surface-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 9px; display: flex; gap: 7px` + 백드롭
-  - 색상 스와치 버튼: `36×26px; border-radius: var(--radius-sm); border: 1px solid rgba(0,0,0,.08); background: {커버색}` — 클릭 시 적용 후 닫힘. 현재 선택 표시 미구현
-- **커버 없을 때**: 본문 컬럼 상단(`padding-top: 18px`)에 `🖼 커버 추가` 버튼 —
-  `background: transparent; border: none; color: var(--text-tertiary); font-size: 13px; padding: 4px 6px; border-radius: var(--radius-sm)` — 클릭 시 `blue` 커버 적용. hover 미구현
-
-#### 이모지
-
-- 표시: `font-size: 58px; line-height: 1; cursor: pointer; user-select: none; margin-bottom: 6px` —
-  `margin-top`: 커버 있으면 `-44px` (커버에 겹침), 없으면 `12px`. 클릭 시 피커 토글
-- **이모지 피커 팝오버**: `position: absolute; top: 70px; left: 0; z-index: 20; background: var(--surface-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 8px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; width: 296px` + 백드롭
-- 후보 16종 (`lib/data.ts` `EMOJIS`, 8×2 그리드):
-  `🗺️ ⚙️ 🧩 🗄️ ✅ 📝 💡 📌 🚀 🧠 🗂️ ⏰ 🌱 🔖 📊 🎯`
-- 항목 버튼: `border: none; background: transparent; font-size: 20px; padding: 5px; border-radius: var(--radius-md); line-height: 1` — hover 배경 `var(--surface-hover)`(JS). 클릭 시 적용 후 닫힘
-- 새 글 기본 이모지: `📝`
+> 커버·이모지 기능은 서버 저장 전환(002-supabase-page-crud, FR-009)으로
+> 제거되었다 — page 테이블에 저장 컬럼이 없고 테이블 구조는 변경 불가.
 
 #### 제목 입력
 
-- `<input>`: `width: 100%; border: none; outline: none; background: transparent; font-family: var(--font-sans); font-size: 36px; font-weight: 700; letter-spacing: var(--tracking-tight); color: var(--text-primary); padding: 0; margin: 2px 0 8px`
+- `<input>`: `width: 100%; border: none; outline: none; background: transparent; font-family: var(--font-sans); font-size: 36px; font-weight: 700; letter-spacing: var(--tracking-tight); color: var(--text-primary); padding: 0; margin: 12px 0 8px`
+  (상단 12px은 제거된 이모지의 `margin-top` 리터럴을 승계 — 본문 컬럼의 첫 요소)
 - placeholder: `제목 없음` (색은 전역 placeholder 규칙 → `--text-tertiary`)
 - 포커스 표시 없음 (`.nk-inp` 미적용, outline 제거됨)
 
@@ -464,7 +464,8 @@
 
 - `display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-tertiary); margin-bottom: 26px`
 - 아바타: `20×20px; border-radius: 50%; background: var(--tile-blue); color: var(--blue-700); font-size: 10px; font-weight: 600` — 이미지 또는 이니셜
-- 내용: `{닉네임}` `·` `{rel(updated)} 편집됨`
+- 내용: `{닉네임}` `·` `{rel(created)} 작성됨` (생성 시각 기준 — `updated`는
+  저장 컬럼이 없어 제거됨)
 
 #### 본문 입력
 
@@ -501,8 +502,9 @@
 - **`구글로 로그인` 버튼**: `width: 100%; inline-flex 가운데; gap: 10px; padding: 11px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-strong); color: var(--text-primary); font-size: 15px; font-weight: 500; transition: background var(--duration-base) var(--ease-standard)`
   - default `var(--surface-base)` / hover `var(--surface-subtle)` / active·focus·disabled 미구현
   - 좌측에 `GoogleIcon` 18px (구글 브랜드 4색 "G": `#EA4335 #4285F4 #FBBC05 #34A853` — 앱에서 브랜드 컬러를 쓰는 유일한 곳)
-- **안내 문구**: `로그인하면 내 글이 이 브라우저에 안전하게 저장됩니다.` —
+- **안내 문구**: `로그인하면 내 글이 내 계정에 안전하게 저장됩니다.` —
   `margin: 22px 0 0; font-size: 12px; line-height: 1.6; color: var(--text-tertiary)`
+  (글이 계정 기준 서버 저장소에 저장됨을 반영해 002 기능에서 문구 변경)
 
 ### 4.6 마이 페이지 요소 (`app/(app)/mypage/page.tsx`)
 
@@ -535,7 +537,7 @@ Lucide 스타일 라인 아이콘. 공통 속성: `viewBox="0 0 24 24"; fill: no
 | `ImageIcon` | 15px | **미사용** (정의만 존재) |
 | `GoogleIcon` | 18px | 로그인 버튼 (viewBox 0 0 48 48, 브랜드 4색 fill, `aria-hidden`) |
 
-> 삭제·커버 추가 버튼은 아이콘 대신 텍스트/이모지(`🖼`)를 사용한다.
+> 삭제 버튼은 아이콘 대신 텍스트를 사용한다.
 
 ---
 
@@ -548,7 +550,7 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
                                  │
                  '/page' 입력 ──▶ 새 글 생성 → 목록에 추가 · 에디터 열림
                                  │
-                 글 클릭 ───────▶ 상세 편집(제목·이모지·커버·본문) · 자동 저장
+                 글 클릭 ───────▶ 상세 편집(제목·본문) · 자동 저장(서버)
                                  │                         └ 삭제(확인) → 목록으로
                                  │
                  아바타 클릭 ───▶ /mypage (별명 · 프로필 이미지)
@@ -562,23 +564,32 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    - 목록 명령 입력창에 `/page`(또는 `/new`, `/page ...`) 입력 후 Enter
    - 목록 헤더 `＋ 새 글` 버튼 / 빈 상태 `＋ 새 글 만들기` 버튼
    - 레일 `+` 버튼 (추가로 `/`로 이동)
-   - 새 글: 이모지 `📝`, 커버 없음, 제목·본문 빈 값. 목록 맨 앞에 추가되고 즉시 선택되어 에디터가 열림
-3. **자동 저장**: 제목·본문·이모지·커버를 수정(`patch`)할 때마다 즉시 상태 갱신 +
-   localStorage(`mini-nook-v1`) 영속화. `updated` 타임스탬프 갱신 → 목록이 최신순이므로 행이 맨 위로 이동.
-   저장 표시가 `자동 저장` → `저장됨 ✓`로 바뀌고 1500ms 후 복귀 (연속 입력 시 타이머 리셋)
-4. **삭제 확인**: 탑바 `삭제` → 팝오버 (`취소` / `삭제`). 확정 시 글 제거 후 남은 글 중 첫
-   번째(최신 정렬 아닌 배열 순서 기준 첫 항목)가 자동 선택, 없으면 빈 상태 표시
+   - 새 글: 서버(page 테이블)에 빈 제목·빈 본문으로 등록된 뒤 목록 맨 앞에
+     추가되고 즉시 선택되어 에디터가 열림. 등록 실패 시 글이 생성되지 않고
+     목록 구분선 아래에 `새 글을 만들지 못했어요.` 안내가 표시됨
+3. **자동 저장(서버)**: 제목·본문 수정(`patch`)은 로컬 상태에 즉시 반영(입력
+   반응성)되고, 마지막 입력 후 600ms 디바운스로 서버에 1회 저장된다(글 전환·
+   화면 이탈 시 보류 변경 즉시 저장). 저장 표시는 서버 저장이 **성공한 뒤에만**
+   `자동 저장` → `저장됨 ✓`로 바뀌고 1500ms 후 복귀(연속 성공 시 타이머 리셋).
+   실패 시 `저장 실패`(빨강)로 바뀌고 편집 내용은 화면에 유지되며, 실패한
+   변경분은 다음 저장에서 재전송된다
+4. **삭제 확인**: 탑바 `삭제` → 팝오버 (`취소` / `삭제`). 확정 시 서버 삭제가
+   성공한 뒤 글이 제거되고 남은 글 중 첫 번째(배열 순서 기준 첫 항목)가 자동
+   선택, 없으면 빈 상태 표시. 실패 시 글 유지 + 저장 표시 `삭제 실패`
 5. **팝오버 공통 패턴**: 투명 전면 백드롭(z 10) 클릭으로 닫기. 팝오버 본체는 z 20.
-   글을 전환하면 열려 있던 팝오버(이모지·커버·삭제 확인)는 모두 닫힘. Esc 닫기 미구현
-6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환. 선택 상태도 localStorage에 영속
+   글을 전환하면 열려 있던 팝오버(삭제 확인)는 닫힘. Esc 닫기 미구현
+6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환.
+   선택 상태는 메모리 전용(영속하지 않음) — 새로고침하면 최신 생성 글이 선택됨
 7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력·이미지 업로드는
    입력 즉시 반영·저장, `변경 사항 저장` 버튼은 확인 플래시용
 8. **데이터**:
-   - 최초 방문(저장된 글 없음) 시 시드 5개 자동 생성 — 제목: `미니 노션 PRD 정리`(🗺️, blue 커버),
-     `Google OAuth 2.0 연동 기록`(⚙️), `React로 /page 슬래시 명령 구현`(🧩),
-     `Supabase로 글 데이터 저장하기`(🗄️), `MVP 체크리스트`(✅) — 각각 5시간·26시간·2일·6일·9일 전 타임스탬프
+   - 글은 Supabase `page` 테이블에 계정(user_id) 기준으로 저장되며, RLS 정책이
+     본인 글만 조회·수정·삭제되도록 강제한다. 시드 글 자동 생성은 없음 —
+     글이 없는 계정은 빈 상태에서 시작
+   - 목록 로드 동안 목록 영역에 `불러오는 중…` 표시(빈 상태 문구는 로드 완료
+     후에만). 조회 실패 시 `글을 불러오지 못했어요.` + `다시 시도`
    - 기본 프로필: 닉네임 `경현`, 이메일 `kyunghyun@gmail.com`, 아바타 없음
-   - 저장 키: 글/프로필 `mini-nook-v1`, 인증 `nook-auth`
+   - 저장 키: 프로필 `mini-nook-v1`(글·선택 상태는 저장하지 않음), 인증 `nook-auth`
 
 ---
 
@@ -641,8 +652,8 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 | 파일 | 확인 결과 |
 | --- | --- |
 | `IconRail.tsx` | 치수(60/34/38/30px), 상태 3종, 선택 링, 이니셜 폴백 모두 §4.1에 기록 — 누락 없음 |
-| `PostList.tsx` | 패널 256px, 헤더/검색/명령 입력/구분선/행 상태/시간·미리보기 규칙/빈 상태 2종 §4.2에 기록 — 누락 없음 |
-| `Editor.tsx` | 탑바 44px, 저장 표시, 삭제 팝오버(228px), 커버(150px)·피커, 이모지(58px)·피커(296px, 8열), 제목 36px, 메타 줄, 본문 textarea(340px, 1.75) §4.3에 기록 — 누락 없음 |
+| `PostList.tsx` | 패널 256px, 헤더/검색/명령 입력/구분선/행 상태/시간·미리보기 규칙/빈 상태 2종 + 로딩·조회 실패·생성 실패 상태(002) §4.2에 기록 — 누락 없음 |
+| `Editor.tsx` | 탑바 44px, 저장 표시 4종(002), 삭제 팝오버(228px), 제목 36px(상단 12px), 메타 줄(작성됨), 본문 textarea(340px, 1.75) §4.3에 기록 — 커버·이모지는 002에서 제거 |
 | `EmptyState.tsx` | 이모지 46px, 제목/설명/버튼 값 §4.4에 기록 — 누락 없음 |
 | `icons.tsx` | 6종 아이콘 공통 속성·크기·사용처(미사용 3종 포함) §4.7에 기록 — 누락 없음 |
 
