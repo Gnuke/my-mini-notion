@@ -94,7 +94,7 @@ export default function Editor() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 5,
-                background: delHover ? "var(--red-50)" : "transparent",
+                background: delHover ? "var(--danger-subtle)" : "transparent",
                 border: "none",
                 color: "var(--text-danger)",
                 fontSize: 13,
@@ -379,7 +379,7 @@ export default function Editor() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 background: "var(--tile-blue)",
-                color: "var(--blue-700)",
+                color: "var(--tile-blue-text)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -439,7 +439,7 @@ export default function Editor() {
           position: "absolute",
           right: 18,
           bottom: 12,
-          background: "rgba(255,255,255,.92)",
+          background: "var(--surface-overlay)",
           border: "1px solid var(--border-subtle)",
           borderRadius: "var(--radius-sm)",
           padding: "4px 9px",
@@ -456,7 +456,7 @@ export default function Editor() {
 }
 
 const coverBtnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,.92)",
+  background: "var(--surface-overlay)",
   border: "1px solid var(--border-subtle)",
   borderRadius: "var(--radius-sm)",
   fontSize: 12,
