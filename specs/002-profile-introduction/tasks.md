@@ -128,11 +128,13 @@ Next.js App Router 단일 프로젝트 — plan.md의 Source Code 구조를 따�
 
 - [X] T017 `app/(app)/mypage/page.test.tsx`에 무회귀 테스트 추가 — 별명 입력 즉시 반영(기존 setNickname 경로), 이메일 입력 disabled 유지 (FR-009/SC-004; 기존 동작 검증이므로 즉시 통과가 정상 — RED 불요)
 - [X] T018 완료 게이트 실행 — `npm test` 전체 통과 + 출력 무결(에러·경고 0) 확인, 실패 시 코드 수정 (헌법 완료 게이트)
-- [ ] T019 `quickstart.md` 수동 E2E 검증 수행 — 사용자 `.env.local` 준비 후 `npm run dev`로 1~8단계 + 성공 기준(SC-001~004) 대조
-  - **부분 수행(2026-07-16)**: dev 서버 기동 + 라이브 API 계약 확인 완료 — GET/PUT 모두
-    계약대로 응답(400 TOO_LONG / 400 INVALID_BODY / 500 LOAD_FAILED·SAVE_FAILED).
-    현재 `.env.local`에 `SUPABASE_SERVICE_ROLE_KEY`가 없어 500이 반환됨(불러오기 실패
-    UI 경로와 일치). **사용자가 키를 추가한 뒤** 등록/수정/DB 반영의 나머지 단계를 수행해야 함
+- [X] T019 `quickstart.md` 수동 E2E 검증 수행 — 사용자 `.env.local` 준비 후 `npm run dev`로 1~8단계 + 성공 기준(SC-001~004) 대조
+  - **1차(2026-07-16, 키 없음)**: 라이브 API 계약 확인 — 400 TOO_LONG / 400 INVALID_BODY /
+    500 LOAD_FAILED·SAVE_FAILED 모두 계약대로. 불러오기 실패 UI 경로와 일치
+  - **2차(2026-07-16, 키 적용 후)**: 실제 DB 왕복 E2E 완료 — 등록(줄바꿈·이모지 보존)→
+    재조회 일치→비우기(null) 복원까지 확인, Supabase 테이블 값 대조 완료.
+    이 과정에서 **Next.js 데이터 캐시가 stale 조회 응답을 반환하는 버그 발견** →
+    TDD로 수정(`force-dynamic` + DB fetch `cache: "no-store"`, 테스트 3건 추가, 전체 70개 통과)
 - [X] T020 문서·코드 최종 동기화 점검 — spec.md/plan.md/DESIGN.md §4.6과 구현 결과 대조, 어긋남 발견 시 보고 후 같은 작업 단위에서 해소 (원칙 V)
 
 ---

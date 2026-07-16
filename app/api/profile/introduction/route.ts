@@ -8,12 +8,19 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isIntroTooLong, normalizeIntroduction } from "@/lib/introduction";
 
+// Next.js가 GET 라우트와 서버 fetch를 데이터 캐시로 감싸 stale 자기소개를
+// 돌려줄 수 있으므로, 라우트와 DB 요청 모두 캐시를 쓰지 않게 고정한다.
+export const dynamic = "force-dynamic";
+
 function getClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
 }
 

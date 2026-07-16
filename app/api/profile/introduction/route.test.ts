@@ -3,7 +3,7 @@
 // supabase-js는 실제 코드로 실행하고, 네트워크 경계(global fetch)만
 // PostgREST 실제 응답 구조로 스텁한다.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { GET, PUT } from "@/app/api/profile/introduction/route";
+import { GET, PUT, dynamic } from "@/app/api/profile/introduction/route";
 
 const PG_HEADERS = { "Content-Type": "application/json" };
 
@@ -66,6 +66,33 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("캐시 무효화 — Next.js 데이터 캐시가 stale 값을 돌려주지 않아야 한다", () => {
+  test("라우트는 force-dynamic으로 선언된다", () => {
+    expect(dynamic).toBe("force-dynamic");
+  });
+
+  test("GET의 DB 조회 fetch는 cache: no-store로 호출된다", async () => {
+    const calls = stubPostgrest([
+      pgRows([{ id: "row-1", introduction: "값" }]),
+    ]);
+
+    await GET();
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0].init?.cache).toBe("no-store");
+  });
+
+  test("PUT의 DB 조회·갱신 fetch도 cache: no-store로 호출된다", async () => {
+    const calls = stubPostgrest([pgRows([{ id: "row-1" }]), pgNoContent()]);
+
+    await PUT(putRequest(JSON.stringify({ introduction: "값" })));
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0].init?.cache).toBe("no-store");
+    expect(calls[1].init?.cache).toBe("no-store");
+  });
 });
 
 describe("GET /api/profile/introduction", () => {

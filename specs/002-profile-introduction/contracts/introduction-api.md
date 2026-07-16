@@ -10,6 +10,9 @@
 - 런타임: Node (App Router Route Handler, `app/api/profile/introduction/route.ts`)
 - 환경 변수: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (서버 전용)
 - 응답 본문은 항상 JSON. 서비스 롤 키·내부 에러 상세는 응답에 노출하지 않는다.
+- **캐시 금지**: 라우트는 `export const dynamic = "force-dynamic"`, DB로 나가는
+  모든 fetch는 `cache: "no-store"`로 호출한다. Next.js 데이터 캐시가 조회 응답을
+  재사용하면 저장 직후에도 stale 값이 반환되기 때문(실측 버그, E2E에서 발견).
 
 ## GET — 자기소개 조회
 
