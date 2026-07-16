@@ -2,13 +2,19 @@
 
 import { useState } from "react";
 import { useNook } from "@/lib/store";
+import IconRail from "@/components/IconRail";
 
 export default function MyPage() {
   const { loaded, profile, setNickname, setAvatar, saved, flash } = useNook();
   const [saveHover, setSaveHover] = useState(false);
 
   if (!loaded) {
-    return <div style={{ flex: 1, background: "var(--surface-base)" }} />;
+    return (
+      <>
+        <IconRail />
+        <div style={{ flex: 1, background: "var(--surface-base)" }} />
+      </>
+    );
   }
 
   const initial = (profile.nickname || "?").trim().charAt(0) || "?";
@@ -22,15 +28,17 @@ export default function MyPage() {
   }
 
   return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        background: "var(--surface-base)",
-        overflowY: "auto",
-      }}
-    >
-      <div style={{ maxWidth: 520, margin: "0 auto", padding: "56px 40px 100px" }}>
+    <>
+      <IconRail />
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          background: "var(--surface-base)",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ maxWidth: 520, margin: "0 auto", padding: "56px 40px 100px" }}>
         <div
           style={{
             fontSize: 24,
@@ -208,7 +216,8 @@ export default function MyPage() {
             </span>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

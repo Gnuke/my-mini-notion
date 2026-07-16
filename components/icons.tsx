@@ -30,6 +30,26 @@ export function PlusIcon({ size = 19, className }: IconProps) {
   );
 }
 
+export function PanelLeftCloseIcon({ size = 19, className }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...base}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M9 3v18" />
+      <path d="m16 15-3-3 3-3" />
+    </svg>
+  );
+}
+
+export function PanelLeftOpenIcon({ size = 19, className }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...base}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M9 3v18" />
+      <path d="m14 9 3 3-3 3" />
+    </svg>
+  );
+}
+
 export function SearchIcon({ size = 15, className }: IconProps) {
   return (
     <svg width={size} height={size} className={className} {...base}>

@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useNook } from "@/lib/store";
-import { HomeIcon, PlusIcon } from "./icons";
+import {
+  HomeIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+} from "./icons";
 
 function RailButton({
   title,
@@ -47,7 +52,25 @@ function RailButton({
   );
 }
 
-export default function IconRail() {
+const railStyle: React.CSSProperties = {
+  width: 60,
+  flex: "none",
+  background: "var(--surface-sidebar)",
+  borderRight: "1px solid var(--border-subtle)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 6,
+  padding: "12px 0",
+};
+
+export default function IconRail({
+  collapsed = false,
+  onToggleSidebar,
+}: {
+  collapsed?: boolean;
+  onToggleSidebar?: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile, newPost } = useNook();
@@ -55,21 +78,27 @@ export default function IconRail() {
   const initial = (profile.nickname || "?").trim().charAt(0) || "?";
   const onMypage = pathname === "/mypage";
 
-  return (
-    <nav
-      aria-label="주요 탐색"
-      style={{
-        width: 60,
-        flex: "none",
-        background: "var(--surface-sidebar)",
-        borderRight: "1px solid var(--border-subtle)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 6,
-        padding: "12px 0",
-      }}
+  const toggleButton = onToggleSidebar ? (
+    <RailButton
+      title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+      onClick={onToggleSidebar}
     >
+      {collapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
+    </RailButton>
+  ) : null;
+
+  // 접힘 스트립 모드: 같은 60px 컨테이너에 토글 버튼만 남긴다 (계약 §3).
+  if (collapsed) {
+    return (
+      <nav aria-label="주요 탐색" style={railStyle}>
+        {toggleButton}
+      </nav>
+    );
+  }
+
+  return (
+    <nav aria-label="주요 탐색" style={railStyle}>
+      {toggleButton}
       <div
         title="경현의 워크스페이스"
         style={{

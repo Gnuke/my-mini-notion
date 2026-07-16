@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NookProvider } from "@/lib/store";
 import { isAuthed } from "@/lib/auth";
-import IconRail from "@/components/IconRail";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,7 +39,6 @@ function AppShell({ children }: { children: React.ReactNode }) {
         overflow: "hidden",
       }}
     >
-      <IconRail />
       {children}
     </div>
   );

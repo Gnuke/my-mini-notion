@@ -283,13 +283,35 @@
 ```
 
 - 앱 셸(`(app)/layout.tsx`): `height: 100vh; display: flex; background: var(--surface-base); color: var(--text-primary); overflow: hidden`
+  — 셸은 컨테이너만 제공하고, 아이콘 레일은 각 페이지가 직접 렌더한다
+  (업무 페이지: 접기 토글 프롭 전달, 마이 페이지: 프롭 없이 렌더)
 - 인증 확인 전: 내용 없는 `<div style="height: 100vh; background: var(--surface-canvas)">` (앱 플래시 방지)
-- 스토어 하이드레이션 전(`page.tsx`): `<div style="flex: 1; background: var(--surface-base)">`
+- 스토어 하이드레이션 전(`page.tsx`): `<IconRail>` + `<div style="flex: 1; background: var(--surface-base)">`
 - 1열 아이콘 레일: `width: 60px; flex: none` — 스크롤 없음, 세로 flex
 - 2열 글 목록: `width: 256px; flex: none` — 목록 영역만 `overflow-y: auto`
 - 3열 에디터 영역: `flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden` —
   선택된 글이 있으면 Editor, 없으면 EmptyState
 - 반응형 분기 없음 (고정 3분할, 미디어쿼리 미구현)
+
+**사이드바 접힘 상태** (업무 페이지 전용):
+
+```
+┌──┬──────────────────────────────────┐
+│스 │        에디터 / 빈 상태            │
+│트 │        flex: 1                   │
+│립 │      (surface-base)              │
+│60│                                  │
+└──┴──────────────────────────────────┘
+```
+
+- 토글 버튼([§4.1](#41-iconrail-componentsiconrailtsx))으로 1열 레일 내용과
+  2열 글 목록이 함께 접힌다. 60px 스트립(토글 버튼만 남은 레일 컨테이너)과
+  에디터 영역만 남는다.
+- 글 목록(PostList)은 접힘 중에도 **마운트 유지** — 래퍼
+  `<div style="display: collapsed ? none : contents">`로 표시만 숨겨 검색어
+  등 로컬 상태를 보존한다.
+- 접힘 상태는 `page.tsx`의 로컬 state(기본 펼침)이며 저장하지 않는다 —
+  새로고침·재방문·마이 페이지 왕복 시 펼침으로 시작. 전환 모션 없음(즉시 전환).
 
 ### 3.3 글 상세 (에디터 — 3열 내부)
 
@@ -311,8 +333,22 @@
 
 앱 왼쪽 고정 세로 네비게이션. `<nav aria-label="주요 탐색">`.
 
+- 프롭: `collapsed?: boolean`(기본 false), `onToggleSidebar?: () => void` —
+  `onToggleSidebar`가 있을 때만 접기 토글 버튼을 렌더한다 (업무 페이지 전달,
+  마이 페이지 미전달 → 마이 페이지엔 토글 없음)
 - 컨테이너: `width: 60px; flex: none; background: var(--surface-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0`
-- 구성(위→아래): 워크스페이스 타일 → 홈 버튼 → 새 글 버튼 → 스페이서(`flex: 1`) → 아바타 버튼
+- 구성(위→아래): 접기 토글 버튼(프롭 있을 때) → 워크스페이스 타일 → 홈 버튼 → 새 글 버튼 → 스페이서(`flex: 1`) → 아바타 버튼
+
+**접기 토글 버튼** (RailButton 재사용, 34×34px):
+
+| 상태 | 아이콘 | title / aria-label |
+| --- | --- | --- |
+| 펼침(collapsed=false) | `PanelLeftCloseIcon` 19px | `사이드바 접기` |
+| 접힘(collapsed=true) | `PanelLeftOpenIcon` 19px | `사이드바 펼치기` |
+
+**접힘 스트립 모드** (`collapsed=true`): 같은 `<nav>` 컨테이너(60px)에 토글
+버튼 **하나만** 렌더한다. 워크스페이스 타일·홈·새 글·아바타는 렌더하지 않음
+(접근성 트리에서도 제거). 토글 버튼 위치는 펼침 상태와 동일(최상단).
 
 **워크스페이스 타일** (클릭 불가, `title="경현의 워크스페이스"`):
 `34×34px; border-radius: var(--radius-md); background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; margin-bottom: 8px` — 내용은 닉네임 첫 글자
@@ -530,6 +566,8 @@ Lucide 스타일 라인 아이콘. 공통 속성: `viewBox="0 0 24 24"; fill: no
 | --- | --- | --- |
 | `HomeIcon` | 19px | IconRail 홈 버튼 |
 | `PlusIcon` | 19px | IconRail 새 글 버튼 |
+| `PanelLeftCloseIcon` | 19px | IconRail 접기 토글 (펼침 상태에서 표시, lucide panel-left-close) |
+| `PanelLeftOpenIcon` | 19px | IconRail 접기 토글 (접힘 상태에서 표시, lucide panel-left-open) |
 | `SearchIcon` | 15px | **미사용** (정의만 존재) |
 | `TrashIcon` | 15px | **미사용** (정의만 존재) |
 | `ImageIcon` | 15px | **미사용** (정의만 존재) |
@@ -573,7 +611,13 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환. 선택 상태도 localStorage에 영속
 7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력·이미지 업로드는
    입력 즉시 반영·저장, `변경 사항 저장` 버튼은 확인 플래시용
-8. **데이터**:
+8. **사이드바 접기/펼치기** (업무 화면 전용): 레일 최상단 토글 버튼 클릭 →
+   레일 내용 + 글 목록이 함께 접혀 60px 스트립(토글만)이 남고, 다시 클릭하면
+   펼쳐진다. 전환 모션 없음(즉시). 접기는 표시만 바꾼다 — 선택 글·검색어·명령
+   입력값은 다시 펼치면 그대로(글 목록은 display 숨김으로 마운트 유지). 접힘
+   상태는 저장하지 않으며 새로고침·재방문·마이 페이지 왕복 시 펼침으로 시작.
+   마이 페이지에는 토글이 없다(레일 항상 표시)
+9. **데이터**:
    - 최초 방문(저장된 글 없음) 시 시드 5개 자동 생성 — 제목: `미니 노션 PRD 정리`(🗺️, blue 커버),
      `Google OAuth 2.0 연동 기록`(⚙️), `React로 /page 슬래시 명령 구현`(🧩),
      `Supabase로 글 데이터 저장하기`(🗄️), `MVP 체크리스트`(✅) — 각각 5시간·26시간·2일·6일·9일 전 타임스탬프
@@ -586,7 +630,7 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 
 ### 코드에 존재하는 것
 
-- 아이콘 레일: `<nav aria-label="주요 탐색">`, 아이콘 버튼에 `title` + `aria-label` (홈 / 새 글 / 마이 페이지)
+- 아이콘 레일: `<nav aria-label="주요 탐색">`, 아이콘 버튼에 `title` + `aria-label` (홈 / 새 글 / 마이 페이지 / 사이드바 접기 / 사이드바 펼치기)
 - 장식 요소 `aria-hidden`: 로그인 로고 타일, GoogleIcon, 팝오버 백드롭
 - `.nk-inp` 포커스 링: 보더 `var(--border-focus)` + `box-shadow 0 0 0 3px var(--focus-ring)` (검색·명령·별명 입력에 적용)
 - `@media (prefers-reduced-motion: reduce)` — 전 요소 전환·애니메이션 0.001ms로 축소
