@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { NookProvider } from "@/lib/store";
 import { getSupabase } from "@/lib/supabase/client";
-import IconRail from "@/components/IconRail";
 import LogoutButton from "@/components/LogoutButton";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -56,45 +55,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         style={{
           height: "100vh",
           display: "flex",
+          flexDirection: "column",
           background: "var(--surface-base)",
           color: "var(--text-primary)",
           overflow: "hidden",
         }}
       >
-        <IconRail />
+        <header
+          style={{
+            height: 44,
+            flex: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            padding: "0 16px",
+            borderBottom: "1px solid var(--border-subtle)",
+            background: "var(--surface-base)",
+          }}
+        >
+          <LogoutButton />
+        </header>
+        {/* 아이콘 레일은 각 페이지가 렌더한다 — 업무 페이지가 사이드바
+            접기 상태(collapsed)를 소유하기 위함 (002-sidebar-collapse). */}
         <div
           style={{
             flex: 1,
             minWidth: 0,
             display: "flex",
-            flexDirection: "column",
             overflow: "hidden",
           }}
         >
-          <header
-            style={{
-              height: 44,
-              flex: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              padding: "0 16px",
-              borderBottom: "1px solid var(--border-subtle)",
-              background: "var(--surface-base)",
-            }}
-          >
-            <LogoutButton />
-          </header>
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              overflow: "hidden",
-            }}
-          >
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     </NookProvider>
