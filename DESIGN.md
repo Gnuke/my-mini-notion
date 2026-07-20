@@ -625,9 +625,23 @@
 - **프로필 행**: `gap: 18px; margin-bottom: 32px`
   - 아바타(업로드 트리거, `<label>` + 숨김 파일 입력): `72×72px; border-radius: 50%; overflow: hidden; background: var(--tile-blue); color: var(--tile-blue-text); font-size: 26px; font-weight: 600` — 이미지 또는 이니셜
   - 카메라 배지: 아바타 우하단 `right: -2px; bottom: -2px; 26×26px; border-radius: 50%; background: var(--surface-base); border: 1px solid var(--border-strong); font-size: 13px` — 내용 `📷`
-  - 파일 입력: `accept="image/*"`, `display: none` — FileReader로 data URL 변환 후 즉시 반영
+  - 파일 입력: `accept="image/*"`, `display: none`, `aria-label="프로필 이미지 업로드"` —
+    선택 즉시 서버 업로드(`POST /api/profile/image`, 003-profile-image). 이미지 MIME 타입이
+    아니거나 5MB 초과면 요청 없이 안내 문구만 표시. 성공 시 아바타가 업로드된 이미지의
+    공개 URL로 즉시 교체(레일 아바타 등 실시간 갱신). 선택 후 입력값을 비워 같은 파일
+    재선택도 허용
+  - 업로드 중 상태: 파일 입력 `disabled`, 아바타 `opacity: 0.6`, label `cursor: default`
   - 닉네임 표시: `font-size: 16px; font-weight: 600; color: var(--text-primary)`
   - 이메일 표시: `font-size: 13px; color: var(--text-tertiary)`
+  - **이미지 상태 문구** (이메일 표시 아래, `font-size: 13px; margin-top: 4px`):
+    | 상태 | 문구 | 색 |
+    | --- | --- | --- |
+    | 업로드 중 | `이미지를 업로드하는 중…` | `var(--text-tertiary)` |
+    | 비이미지 파일 | `이미지 파일만 업로드할 수 있어요.` | `var(--text-danger)` |
+    | 5MB 초과 | `이미지는 5MB까지 업로드할 수 있어요.` | `var(--text-danger)` |
+    | 업로드 실패 | `이미지 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.` | `var(--text-danger)` |
+
+    오류 문구는 다음 업로드 시도 시 제거. 평상시(idle·성공)에는 렌더하지 않음
 - **필드 라벨** (`별명` / `이메일`): `font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px`
 - **별명 입력**: `.nk-inp`; `width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary); background: var(--surface-base); margin-bottom: 18px; transition: box-shadow .15s, border-color .15s` — placeholder `별명`. 입력 즉시 상태 반영(레일 아바타 이니셜 등 실시간 갱신)
 - **이메일 입력 (disabled)**: `width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; color: var(--text-tertiary); background: var(--surface-subtle); margin-bottom: 18px` — 항상 비활성(수정 불가)
@@ -729,8 +743,10 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    글을 전환하면 열려 있던 팝오버(삭제 확인)는 닫힘. Esc 닫기 미구현
 6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환.
    선택 상태는 메모리 전용(영속하지 않음) — 새로고침하면 최신 생성 글이 선택됨
-7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력·이미지 업로드는
-   입력 즉시 반영·저장. 자기소개는 진입 시 DB에서 조회해 표시하고, `변경 사항 저장`
+7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력은
+   입력 즉시 반영·저장. 이미지 업로드는 선택 즉시 서버 저장(Storage 업로드 +
+   `profile.image_path` 갱신, 003-profile-image) 후 성공 시에만 아바타 교체.
+   자기소개는 진입 시 DB에서 조회해 표시하고, `변경 사항 저장`
    버튼 클릭 시 DB에 저장(성공 시에만 확인 플래시)
 8. **사이드바 접기/펼치기** (002-sidebar-collapse, 업무 화면 전용): 레일 최상단
    토글 버튼 클릭 → 레일 내용 + 글 목록이 함께 접혀 60px 스트립(토글만)이 남고,
@@ -753,6 +769,15 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    - 자기소개: Supabase `profile.introduction` 컬럼이 단일 원천 —
      `/api/profile/introduction`(GET/PUT, 서버 라우트)을 통해 조회·저장하며
      localStorage에 저장하지 않는다 (002-profile-introduction)
+   - 프로필 이미지 (003-profile-image): 업로드 원본은 Supabase Storage
+     `profile-image` 버킷(공개)에 **uuidv4 파일명**(+원본 확장자)으로 저장 —
+     `/api/profile/image`(GET/POST, 서버 라우트) 경유. DB `profile.image_path`
+     컬럼에는 **버킷명 이후 경로**만 기록하고, 표시 URL은
+     `NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL`(스토리지 주소~버킷명) + `/` +
+     `image_path`로 조합한다 (`lib/profile-image.ts`). 마이 페이지 진입 시
+     DB 값으로 아바타를 동기화(실패 시 기존 아바타/이니셜 유지, 화면 비차단)하고,
+     업로드 성공 시 이전 파일은 스토리지에서 삭제한다. 조합된 URL은 기존대로
+     localStorage 프로필에 캐시되어 레일·에디터 아바타에 즉시 반영
 
 ---
 

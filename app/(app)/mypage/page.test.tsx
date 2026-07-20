@@ -78,7 +78,14 @@ describe("마이페이지 자기소개 — 로딩 게이트 (US1)", () => {
     }) => void;
     vi.stubGlobal(
       "fetch",
-      vi.fn(() => new Promise((resolve) => (resolveGet = resolve)))
+      vi.fn((url: unknown) => {
+        // 이미지 경로 조회(003)는 즉시 미등록으로 응답 —
+        // 로딩 게이트는 자기소개 조회만 대상이다.
+        if (String(url).includes("/api/profile/image")) {
+          return Promise.resolve(jsonResponse(true, {}));
+        }
+        return new Promise((resolve) => (resolveGet = resolve));
+      })
     );
 
     renderMyPage();
