@@ -1,14 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNook } from "@/lib/store";
 import IconRail from "@/components/IconRail";
+import { countChars } from "@/lib/chars";
+import {
+  INTRO_MAX_CHARS,
+  fetchIntroduction,
+  isIntroTooLong,
+  saveIntroduction,
+} from "@/lib/introduction";
+
+type IntroStatus = "loading" | "ready" | "load-error";
 
 export default function MyPage() {
   const { loading, profile, setNickname, setAvatar, saved, flash } = useNook();
   const [saveHover, setSaveHover] = useState(false);
+  const [introStatus, setIntroStatus] = useState<IntroStatus>("loading");
+  const [introduction, setIntroduction] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  if (loading) {
+  // 자기소개는 localStorage가 아닌 DB가 단일 원천 — 마운트 시 1회 조회.
+  useEffect(() => {
+    let alive = true;
+    fetchIntroduction()
+      .then((value) => {
+        if (!alive) return;
+        setIntroduction(value ?? "");
+        setIntroStatus("ready");
+      })
+      .catch(() => {
+        // 저장본 존재 여부를 알 수 없는 상태 — 미등록과 구분해 오류로 표시.
+        if (alive) setIntroStatus("load-error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 500자 이하이거나 기존보다 짧아지는 변경만 수용 — 초과 저장본도 줄이는 편집은 가능.
+  function onIntroChange(next: string) {
+    if (
+      countChars(next) <= INTRO_MAX_CHARS ||
+      countChars(next) < countChars(introduction)
+    ) {
+      setIntroduction(next);
+    }
+  }
+
+  async function onSave() {
+    if (introStatus !== "ready") return;
+    if (isIntroTooLong(introduction)) {
+      setSaveError("자기소개는 500자까지 저장할 수 있어요.");
+      return;
+    }
+    setSaveError(null);
+    try {
+      const savedValue = await saveIntroduction(introduction);
+      setIntroduction(savedValue ?? "");
+      flash();
+    } catch {
+      setSaveError("저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  }
+
+  // 자기소개까지 준비된 뒤에만 폼을 표시 — 입력 중 저장본이 덮어쓰는 경로 차단.
+  if (loading || introStatus === "loading") {
     return (
       <>
         <IconRail />
@@ -186,13 +243,79 @@ export default function MyPage() {
             fontSize: 14,
             color: "var(--text-tertiary)",
             background: "var(--surface-subtle)",
-            marginBottom: 30,
+            marginBottom: 18,
           }}
         />
 
+        <label
+          htmlFor="nk-intro"
+          style={{
+            display: "block",
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            fontWeight: 500,
+            marginBottom: 6,
+          }}
+        >
+          자기소개
+        </label>
+        <textarea
+          id="nk-intro"
+          className="nk-inp"
+          value={introduction}
+          onChange={(e) => onIntroChange(e.target.value)}
+          disabled={introStatus === "load-error"}
+          placeholder={
+            introStatus === "load-error"
+              ? undefined
+              : "자신을 소개하는 글을 남겨보세요"
+          }
+          style={{
+            width: "100%",
+            minHeight: 120,
+            resize: "none",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius-sm)",
+            padding: "9px 11px",
+            fontFamily: "var(--font-sans)",
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "var(--text-primary)",
+            background: "var(--surface-base)",
+            display: "block",
+            marginBottom: 6,
+            transition: "box-shadow .15s, border-color .15s",
+          }}
+        />
+        {introStatus === "load-error" ? (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--text-danger)",
+              marginBottom: 30,
+            }}
+          >
+            자기소개를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              fontSize: 12,
+              color: isIntroTooLong(introduction)
+                ? "var(--text-danger)"
+                : "var(--text-tertiary)",
+              marginBottom: 30,
+            }}
+          >
+            {countChars(introduction)}/{INTRO_MAX_CHARS}자
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button
-            onClick={() => flash()}
+            onClick={onSave}
             onMouseEnter={() => setSaveHover(true)}
             onMouseLeave={() => setSaveHover(false)}
             style={{
@@ -213,6 +336,11 @@ export default function MyPage() {
           {saved && (
             <span style={{ fontSize: 13, color: "var(--text-success)" }}>
               저장되었습니다 ✓
+            </span>
+          )}
+          {saveError && (
+            <span style={{ fontSize: 13, color: "var(--text-danger)" }}>
+              {saveError}
             </span>
           )}
         </div>
