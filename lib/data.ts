@@ -15,10 +15,6 @@ export interface Profile {
   avatar: string | null;
 }
 
-// 프로필 영속에만 사용한다. 글·선택 상태는 서버 저장으로 전환되어
-// localStorage에 기록하지 않는다 (FR-006).
-export const LS_KEY = "mini-nook-v1";
-
 const H = 3600000;
 const D = 86400000;
 
@@ -33,6 +29,7 @@ export function rel(ts: number): string {
   return t.getMonth() + 1 + "월 " + t.getDate() + "일";
 }
 
+// 로그인 유저가 없을 때(예: 단위 테스트) 쓰는 폴백 프로필.
 export const DEFAULT_PROFILE: Profile = {
   nickname: "경현",
   email: "kyunghyun@gmail.com",

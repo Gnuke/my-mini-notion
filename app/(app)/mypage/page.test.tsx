@@ -5,7 +5,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MyPage from "@/app/(app)/mypage/page";
 import { NookProvider } from "@/lib/store";
-import { DEFAULT_PROFILE, LS_KEY } from "@/lib/data";
+import { DEFAULT_PROFILE } from "@/lib/data";
 
 // 마이페이지가 아이콘 레일을 직접 렌더하므로(002-sidebar-collapse)
 // jsdom에 없는 App Router 런타임만 모킹한다.
@@ -18,7 +18,7 @@ const INTRO_PLACEHOLDER = "자신을 소개하는 글을 남겨보세요";
 const SAVE_BUTTON = "변경 사항 저장";
 const SAVED_FLASH = "저장되었습니다 ✓";
 
-type MockJson = { introduction?: string | null; error?: string };
+type MockJson = { introduction?: string | null; name?: string; error?: string };
 
 function jsonResponse(ok: boolean, body: MockJson) {
   return { ok, json: async () => body };
@@ -29,8 +29,14 @@ function stubApi(options: {
   get?: { ok: boolean; body: MockJson } | (() => Promise<never>);
   put?: { ok: boolean; body: MockJson };
 }) {
-  const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === "PUT") {
+      // 별명 저장(PUT /api/profile)은 항상 성공 —
+      // 이 파일은 자기소개 계약만 검증한다 (별명 계약은 별도 describe).
+      if (!String(url).includes("/api/profile/introduction")) {
+        const sent = JSON.parse(String(init.body)) as { name: string };
+        return jsonResponse(true, { name: sent.name });
+      }
       const put = options.put ?? { ok: true, body: { introduction: null } };
       return jsonResponse(put.ok, put.body);
     }
@@ -50,9 +56,12 @@ function renderMyPage() {
   );
 }
 
+/** 자기소개 PUT(/api/profile/introduction) 요청 본문. */
 function putCallBody(fetchMock: ReturnType<typeof vi.fn>): unknown {
   const call = fetchMock.mock.calls.find(
-    (args) => (args[1] as RequestInit | undefined)?.method === "PUT"
+    (args) =>
+      (args[1] as RequestInit | undefined)?.method === "PUT" &&
+      String(args[0]).includes("/api/profile/introduction")
   );
   expect(call).toBeTruthy();
   return JSON.parse(String((call![1] as RequestInit).body));
@@ -60,10 +69,6 @@ function putCallBody(fetchMock: ReturnType<typeof vi.fn>): unknown {
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem(
-    LS_KEY,
-    JSON.stringify({ posts: [], selectedId: null, profile: DEFAULT_PROFILE })
-  );
 });
 
 afterEach(() => {
@@ -277,8 +282,11 @@ describe("마이페이지 자기소개 — 저장 실패 (US3)", () => {
 
   test("저장 실패 후 재시도가 성공하면 오류 문구가 사라지고 확인 표시가 나타난다", async () => {
     let putCount = 0;
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "PUT") {
+        if (!String(url).includes("/api/profile/introduction")) {
+          return jsonResponse(true, { name: "경현" });
+        }
         putCount += 1;
         return putCount === 1
           ? jsonResponse(false, { error: "SAVE_FAILED" })
@@ -304,7 +312,7 @@ describe("마이페이지 자기소개 — 저장 실패 (US3)", () => {
 });
 
 describe("마이페이지 — 기존 기능 무회귀 (FR-009)", () => {
-  test("별명 입력은 기존처럼 즉시 반영되고 로컬에 저장된다", async () => {
+  test("별명 입력은 즉시 반영되고 localStorage에는 저장되지 않는다", async () => {
     stubApi({ get: { ok: true, body: { introduction: null } } });
     const user = userEvent.setup();
 
@@ -315,8 +323,8 @@ describe("마이페이지 — 기존 기능 무회귀 (FR-009)", () => {
 
     expect(nickname).toHaveValue("새별명");
     expect(screen.getByText("새별명")).toBeInTheDocument();
-    const stored = JSON.parse(localStorage.getItem(LS_KEY) ?? "{}");
-    expect(stored.profile.nickname).toBe("새별명");
+    // 프로필은 DB 단일 원천 — localStorage 영속 제거 (004-profile-db)
+    expect(localStorage.getItem("mini-nook-v1")).toBeNull();
   });
 
   test("이메일 입력은 여전히 비활성이다", async () => {
@@ -326,6 +334,54 @@ describe("마이페이지 — 기존 기능 무회귀 (FR-009)", () => {
     await screen.findByPlaceholderText("별명");
 
     expect(screen.getByDisplayValue(DEFAULT_PROFILE.email)).toBeDisabled();
+  });
+});
+
+describe("마이페이지 별명 — DB 저장 (004-profile-db)", () => {
+  test("변경 사항 저장 시 별명을 PUT /api/profile로 전송한다", async () => {
+    const fetchMock = stubApi({
+      get: { ok: true, body: { introduction: null } },
+    });
+    const user = userEvent.setup();
+
+    renderMyPage();
+    const nickname = await screen.findByPlaceholderText("별명");
+    await user.clear(nickname);
+    await user.type(nickname, "새별명");
+    await user.click(screen.getByRole("button", { name: SAVE_BUTTON }));
+
+    expect(await screen.findByText(SAVED_FLASH)).toBeInTheDocument();
+    const nameCall = fetchMock.mock.calls.find(
+      (args) =>
+        (args[1] as RequestInit | undefined)?.method === "PUT" &&
+        !String(args[0]).includes("/api/profile/introduction")
+    );
+    expect(nameCall).toBeTruthy();
+    expect(String(nameCall![0])).toContain("/api/profile");
+    expect(JSON.parse(String((nameCall![1] as RequestInit).body))).toEqual({
+      name: "새별명",
+    });
+  });
+
+  test("별명을 비우고 저장하면 요청 없이 안내를 표시한다", async () => {
+    const fetchMock = stubApi({
+      get: { ok: true, body: { introduction: null } },
+    });
+    const user = userEvent.setup();
+
+    renderMyPage();
+    const nickname = await screen.findByPlaceholderText("별명");
+    await user.clear(nickname);
+    await user.click(screen.getByRole("button", { name: SAVE_BUTTON }));
+
+    expect(
+      await screen.findByText("별명을 입력해 주세요.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(SAVED_FLASH)).not.toBeInTheDocument();
+    const putCalls = fetchMock.mock.calls.filter(
+      (args) => (args[1] as RequestInit | undefined)?.method === "PUT"
+    );
+    expect(putCalls).toHaveLength(0);
   });
 });
 

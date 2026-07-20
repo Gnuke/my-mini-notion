@@ -2,9 +2,10 @@
 // 모킹은 Supabase 클라이언트 경계 1곳만 — 스토어·lib/pages.ts는 실제 코드 사용.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Mock } from "vitest";
+import type { User } from "@supabase/supabase-js";
 import { act, render } from "@testing-library/react";
 import { NookProvider, useNook } from "@/lib/store";
-import { LS_KEY } from "@/lib/data";
+import { DEFAULT_PROFILE } from "@/lib/data";
 import {
   OK,
   callsOf,
@@ -43,13 +44,23 @@ function install(handlers: Handlers = {}, user?: { id: string } | null) {
   return mock;
 }
 
-function renderStore() {
+function renderStore(user?: User | null) {
   return render(
-    <NookProvider>
+    <NookProvider user={user}>
       <Probe />
     </NookProvider>
   );
 }
+
+// 프로필 시드용 최소 유저 (스토어는 id·email·user_metadata만 읽는다).
+const GOOGLE_USER = {
+  id: "user-1",
+  email: "gnuke@gmail.com",
+  user_metadata: {
+    full_name: "구글이름",
+    avatar_url: "https://g.test/photo.jpg",
+  },
+} as unknown as User;
 
 async function flushAsync() {
   await act(async () => {
@@ -66,6 +77,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("초기 목록 로딩", () => {
@@ -364,8 +377,8 @@ describe("세션 없음 — 비로그인 차단 (US3, FR-001)", () => {
   });
 });
 
-describe("localStorage — 글 데이터 비영속 (FR-006)", () => {
-  test("글·선택 상태는 localStorage에 기록되지 않는다 (프로필만 유지)", async () => {
+describe("localStorage — 비영속 (FR-006, 004-profile-db)", () => {
+  test("글·선택·프로필 어느 것도 localStorage에 기록되지 않는다", async () => {
     install({
       select: () => ({ ...OK, data: [pageRow({ id: "p1" })] }),
       update: () => OK,
@@ -374,11 +387,80 @@ describe("localStorage — 글 데이터 비영속 (FR-006)", () => {
     await flushAsync();
 
     act(() => store.patch({ title: "저장되면 안 되는 제목" }));
+    act(() => store.setNickname("메모리 전용 별명"));
     await flushAsync();
 
-    const raw = localStorage.getItem(LS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    expect(parsed).not.toHaveProperty("posts");
-    expect(parsed).not.toHaveProperty("selectedId");
+    expect(localStorage.getItem("mini-nook-v1")).toBeNull();
+  });
+});
+
+describe("프로필 — DB 단일 원천 (004-profile-db)", () => {
+  test("로그인 유저가 있으면 DB 프로필(별명·이미지 경로)을 조회해 반영한다", async () => {
+    vi.stubEnv(
+      "NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL",
+      "https://cdn.test/profile-image"
+    );
+    install({ select: () => ({ ...OK, data: [] }) });
+    const fetchMock = vi.fn(async (_url: unknown) => ({
+      ok: true,
+      json: async () => ({ name: "디비별명", imagePath: "abc.png" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderStore(GOOGLE_USER);
+    await flushAsync();
+
+    expect(store.profileLoading).toBe(false);
+    expect(store.profile.nickname).toBe("디비별명");
+    expect(store.profile.avatar).toBe(
+      "https://cdn.test/profile-image/abc.png"
+    );
+    expect(store.profile.email).toBe("gnuke@gmail.com");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/profile");
+  });
+
+  test("DB에 별명·이미지가 없으면 구글 계정 폴백을 쓴다", async () => {
+    install({ select: () => ({ ...OK, data: [] }) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ name: null, imagePath: null }),
+      }))
+    );
+
+    renderStore(GOOGLE_USER);
+    await flushAsync();
+
+    expect(store.profile.nickname).toBe("구글이름");
+    expect(store.profile.avatar).toBe("https://g.test/photo.jpg");
+  });
+
+  test("DB 조회가 실패해도 구글 계정 폴백을 유지하고 로딩을 해제한다", async () => {
+    install({ select: () => ({ ...OK, data: [] }) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, json: async () => ({}) }))
+    );
+
+    renderStore(GOOGLE_USER);
+    await flushAsync();
+
+    expect(store.profileLoading).toBe(false);
+    expect(store.profile.nickname).toBe("구글이름");
+    expect(store.profile.email).toBe("gnuke@gmail.com");
+  });
+
+  test("유저가 없으면 프로필 API를 호출하지 않고 기본 프로필을 쓴다", async () => {
+    install({ select: () => ({ ...OK, data: [] }) });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderStore();
+    await flushAsync();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store.profile).toEqual(DEFAULT_PROFILE);
+    expect(store.profileLoading).toBe(false);
   });
 });

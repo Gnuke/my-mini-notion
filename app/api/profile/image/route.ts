@@ -3,45 +3,23 @@
 // 업로드 파일은 Storage `profile-image` 버킷에 uuidv4 파일명으로 저장하고,
 // profile.image_path 에는 버킷명 이후 경로만 기록한다. 공개 URL 앞부분은
 // NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL 환경변수로 클라이언트가 조합한다
-// (lib/profile-image.ts). profile 테이블 접근 규칙(서버 전용 서비스 롤 키 +
-// created_at 오름차순 첫 행)은 introduction 라우트와 동일하다.
+// (lib/profile-image.ts). 쿠키 세션으로 본인을 확인한 뒤(미로그인 401)
+// 서비스 롤 키로 본인(user_id) 행만 접근한다 (004-profile-db).
 import { NextResponse } from "next/server";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PROFILE_IMAGE_BUCKET,
   PROFILE_IMAGE_MAX_BYTES,
 } from "@/lib/profile-image";
+import {
+  getServiceClient,
+  getSessionUserId,
+  selectMyProfile,
+} from "@/lib/server/profile";
 
 // Next.js가 GET 라우트와 서버 fetch를 데이터 캐시로 감싸 stale 경로를
 // 돌려줄 수 있으므로, 라우트와 DB 요청 모두 캐시를 쓰지 않게 고정한다.
 export const dynamic = "force-dynamic";
-
-function getClient(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
-    },
-  });
-}
-
-/** 단일 사용자 프로토타입 규칙: created_at 오름차순 첫 행이 대상 (research.md R2). */
-async function selectFirstProfile(
-  supabase: SupabaseClient,
-  columns: string
-): Promise<{ row: Record<string, unknown> | null; failed: boolean }> {
-  const { data, error } = await supabase
-    .from("profile")
-    .select(columns)
-    .order("created_at", { ascending: true })
-    .limit(1);
-  if (error) return { row: null, failed: true };
-  const rows = (data ?? []) as unknown as Record<string, unknown>[];
-  return { row: rows[0] ?? null, failed: false };
-}
 
 // MIME → 확장자. 목록 밖 타입은 원본 파일명의 확장자로 폴백한다.
 const EXT_BY_MIME: Record<string, string> = {
@@ -70,12 +48,21 @@ async function removeQuietly(supabase: SupabaseClient, path: string) {
 }
 
 export async function GET() {
-  const supabase = getClient();
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const supabase = getServiceClient();
   if (!supabase) {
     return NextResponse.json({ error: "LOAD_FAILED" }, { status: 500 });
   }
 
-  const { row, failed } = await selectFirstProfile(supabase, "id, image_path");
+  const { row, failed } = await selectMyProfile(
+    supabase,
+    userId,
+    "id, image_path"
+  );
   if (failed) {
     return NextResponse.json({ error: "LOAD_FAILED" }, { status: 500 });
   }
@@ -88,6 +75,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
   let form: FormData;
   try {
     form = await request.formData();
@@ -106,12 +98,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "TOO_LARGE" }, { status: 400 });
   }
 
-  const supabase = getClient();
+  const supabase = getServiceClient();
   if (!supabase) {
     return NextResponse.json({ error: "UPLOAD_FAILED" }, { status: 500 });
   }
 
-  const { row, failed } = await selectFirstProfile(supabase, "id, image_path");
+  const { row, failed } = await selectMyProfile(
+    supabase,
+    userId,
+    "id, image_path"
+  );
   if (failed) {
     return NextResponse.json({ error: "UPLOAD_FAILED" }, { status: 500 });
   }

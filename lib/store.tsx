@@ -9,9 +9,11 @@ import {
   useState,
 } from "react";
 import type { User } from "@supabase/supabase-js";
-import { DEFAULT_PROFILE, LS_KEY, Post, Profile } from "./data";
+import { DEFAULT_PROFILE, Post, Profile } from "./data";
 import { getSupabase } from "./supabase/client";
 import { createPage, deletePage, fetchPages, updatePage } from "./pages";
+import { fetchProfile } from "./profile";
+import { profileImageUrl } from "./profile-image";
 
 const SAVE_DEBOUNCE_MS = 600; // research.md R4
 const SAVED_FLASH_MS = 1500;
@@ -58,8 +60,9 @@ interface NookStore {
   saveFailed: FailedOp;
   createFailed: boolean;
 
-  // 프로필 (이 기능 범위 밖 — 기존 동작 유지)
+  // 프로필 — DB(profile 테이블)가 단일 원천 (004-profile-db)
   profile: Profile;
+  profileLoading: boolean;
   setNickname: (nickname: string) => void;
   setAvatar: (avatar: string | null) => void;
   flash: () => void;
@@ -80,6 +83,7 @@ export function NookProvider({
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveFailed, setSaveFailed] = useState<FailedOp>(null);
   const [createFailed, setCreateFailed] = useState(false);
@@ -90,48 +94,45 @@ export function NookProvider({
   const pendingRef = useRef<PendingSave | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const profileReady = useRef(false);
 
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
 
-  // 프로필만 localStorage에서 복원·영속한다. 글·선택 상태는 서버 저장으로
-  // 전환되어 기록하지 않는다 (FR-006).
-  // 로그인된 유저가 있으면 구글 계정 정보로 프로필을 시드하되, 사용자가
-  // 직접 바꾼 별명/이미지(localStorage)는 유지한다. 이메일은 항상 실제
-  // 계정 값을 신뢰(수정 불가).
+  // 프로필은 DB(profile 테이블)가 단일 원천 (004-profile-db) — localStorage
+  // 에는 저장하지 않는다. 로그인 유저의 구글 계정 정보를 폴백으로 즉시
+  // 표시하고, DB 값(name·image_path)이 도착하면 확정한다. 이메일은 항상
+  // 실제 계정 값을 신뢰(수정 불가).
   useEffect(() => {
-    let stored: Profile | undefined;
-    try {
-      const data = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {};
-      if (data.profile) stored = data.profile as Profile;
-    } catch {
-      /* ignore malformed storage */
+    if (!user) {
+      setProfile(DEFAULT_PROFILE);
+      return;
     }
-    if (user) {
-      const base = profileFromUser(user);
-      setProfile({
-        nickname: stored?.nickname || base.nickname,
-        email: base.email,
-        avatar: stored?.avatar ?? base.avatar,
+    const base = profileFromUser(user);
+    setProfile(base);
+    setProfileLoading(true);
+    let cancelled = false;
+    fetchProfile()
+      .then(({ name, imagePath }) => {
+        if (cancelled) return;
+        setProfile({
+          nickname: name || base.nickname,
+          email: base.email,
+          avatar: profileImageUrl(imagePath) ?? base.avatar,
+        });
+      })
+      .catch(() => {
+        /* 조회 실패 시 구글 폴백 유지 — 화면을 막지 않는다 */
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
       });
-    } else {
-      setProfile(stored ?? DEFAULT_PROFILE);
-    }
-    profileReady.current = true;
-    // user?.id 가 바뀔 때만 다시 시드.
+    return () => {
+      cancelled = true;
+    };
+    // user?.id 가 바뀔 때만 다시 로드.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  useEffect(() => {
-    if (!profileReady.current) return;
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ profile }));
-    } catch {
-      /* storage may be full / unavailable */
-    }
-  }, [profile]);
 
   // 서버에서 내 글 목록 로드 (RLS가 본인 행만 반환).
   useEffect(() => {
@@ -317,6 +318,7 @@ export function NookProvider({
     saveFailed,
     createFailed,
     profile,
+    profileLoading,
     setNickname,
     setAvatar,
     flash,

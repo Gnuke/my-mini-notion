@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNook } from "@/lib/store";
 import IconRail from "@/components/IconRail";
 import { countChars } from "@/lib/chars";
@@ -11,25 +11,31 @@ import {
   saveIntroduction,
 } from "@/lib/introduction";
 import {
-  fetchProfileImagePath,
   isImageFile,
   isImageTooLarge,
   profileImageUrl,
   uploadProfileImage,
 } from "@/lib/profile-image";
+import { saveProfileName } from "@/lib/profile";
 
 type IntroStatus = "loading" | "ready" | "load-error";
 
 export default function MyPage() {
-  const { loading, profile, setNickname, setAvatar, saved, flash } = useNook();
+  const {
+    loading,
+    profile,
+    profileLoading,
+    setNickname,
+    setAvatar,
+    saved,
+    flash,
+  } = useNook();
   const [saveHover, setSaveHover] = useState(false);
   const [introStatus, setIntroStatus] = useState<IntroStatus>("loading");
   const [introduction, setIntroduction] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
-  // 마운트 동기화가 사용자의 새 업로드를 되돌리지 않도록 하는 가드.
-  const imageTouched = useRef(false);
 
   // 자기소개는 localStorage가 아닌 DB가 단일 원천 — 마운트 시 1회 조회.
   useEffect(() => {
@@ -49,24 +55,6 @@ export default function MyPage() {
     };
   }, []);
 
-  // 프로필 이미지는 DB(profile.image_path)가 단일 원천 — 마운트 시 아바타를
-  // 동기화한다. 실패해도 화면을 막지 않는다 (기존 아바타/이니셜 폴백 유지).
-  useEffect(() => {
-    let alive = true;
-    fetchProfileImagePath()
-      .then((path) => {
-        if (!alive || imageTouched.current) return;
-        const url = profileImageUrl(path);
-        if (url) setAvatar(url);
-      })
-      .catch(() => {
-        /* 폴백 유지 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [setAvatar]);
-
   // 500자 이하이거나 기존보다 짧아지는 변경만 수용 — 초과 저장본도 줄이는 편집은 가능.
   function onIntroChange(next: string) {
     if (
@@ -77,24 +65,35 @@ export default function MyPage() {
     }
   }
 
+  // 별명(DB profile.name)과 자기소개를 함께 저장한다 (004-profile-db).
   async function onSave() {
-    if (introStatus !== "ready") return;
-    if (isIntroTooLong(introduction)) {
+    const name = profile.nickname.trim();
+    if (!name) {
+      setSaveError("별명을 입력해 주세요.");
+      return;
+    }
+    if (introStatus === "ready" && isIntroTooLong(introduction)) {
       setSaveError("자기소개는 500자까지 저장할 수 있어요.");
       return;
     }
     setSaveError(null);
     try {
-      const savedValue = await saveIntroduction(introduction);
-      setIntroduction(savedValue ?? "");
+      const savedName = await saveProfileName(name);
+      setNickname(savedName);
+      // 불러오기 실패 상태에서는 자기소개를 전송하지 않는다 (저장본 보호).
+      if (introStatus === "ready") {
+        const savedValue = await saveIntroduction(introduction);
+        setIntroduction(savedValue ?? "");
+      }
       flash();
     } catch {
       setSaveError("저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     }
   }
 
-  // 자기소개까지 준비된 뒤에만 폼을 표시 — 입력 중 저장본이 덮어쓰는 경로 차단.
-  if (loading || introStatus === "loading") {
+  // 프로필(DB)·자기소개까지 준비된 뒤에만 폼을 표시 — 입력 중 저장본이
+  // 덮어쓰는 경로 차단.
+  if (loading || profileLoading || introStatus === "loading") {
     return (
       <>
         <IconRail />
@@ -111,7 +110,6 @@ export default function MyPage() {
     const f = e.target.files?.[0];
     e.target.value = ""; // 같은 파일 재선택도 change 이벤트가 나가도록 초기화
     if (!f) return;
-    imageTouched.current = true;
     if (!isImageFile(f)) {
       setImageError("이미지 파일만 업로드할 수 있어요.");
       return;

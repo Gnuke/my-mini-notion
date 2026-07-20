@@ -94,8 +94,10 @@ app/fonts/PretendardVariable.woff2   브랜드 서체(로컬 번들)
 글은 **Supabase `page` 테이블**에 로그인한 계정(user_id) 기준으로 저장되어
 새로고침·재로그인·다른 기기에서도 유지됩니다. RLS(행 수준 보안) 정책이 자신의 글만
 조회·수정·삭제할 수 있도록 DB 수준에서 강제합니다
-(`supabase/migrations/20260716_page_rls_policies.sql`). 프로필(별명·이미지)은 기존대로
-브라우저 localStorage(`mini-nook-v1`)에 저장됩니다.
+(`supabase/migrations/20260716_page_rls_policies.sql`). 프로필(별명·이미지·자기소개)도
+**Supabase `profile` 테이블**(별명 `name`·이미지 경로 `image_path`·자기소개
+`introduction`)이 단일 원천이며, 이미지 원본은 Storage `profile-image` 버킷에
+저장됩니다. localStorage에는 테마 설정(`nook-theme`)만 남습니다.
 
 ---
 

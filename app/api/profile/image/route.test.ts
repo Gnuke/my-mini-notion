@@ -5,6 +5,20 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GET, POST, dynamic } from "@/app/api/profile/image/route";
 
+// 쿠키 세션 확인(lib/server/profile.ts → createSupabaseServerClient)만 모킹 —
+// 그 아래 계층(supabase-js·PostgREST/Storage)은 실제 코드로 실행한다 (004-profile-db).
+const session = vi.hoisted(() => ({ userId: "user-1" as string | null }));
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: () => ({
+    auth: {
+      getUser: async () => ({
+        data: { user: session.userId ? { id: session.userId } : null },
+        error: null,
+      }),
+    },
+  }),
+}));
+
 const PG_HEADERS = { "Content-Type": "application/json" };
 
 // uuidv4 + 선택적 확장자 (예: 0f7c…-….png)
@@ -83,6 +97,7 @@ function postRequest(file?: File): Request {
 }
 
 beforeEach(() => {
+  session.userId = "user-1";
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test-project.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 });
@@ -112,14 +127,42 @@ describe("캐시 무효화 — Next.js 데이터 캐시가 stale 값을 돌려�
   });
 });
 
+describe("세션 없음 — 미로그인 차단 (004-profile-db)", () => {
+  test("GET은 세션이 없으면 401이고 백엔드를 호출하지 않는다", async () => {
+    session.userId = null;
+    const calls = stubBackend([pgRows([{ id: "row-1", image_path: "x.png" }])]);
+
+    const res = await GET();
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "UNAUTHORIZED" });
+    expect(calls).toHaveLength(0);
+  });
+
+  test("POST는 세션이 없으면 401이고 백엔드를 호출하지 않는다", async () => {
+    session.userId = null;
+    const calls = stubBackend([pgRows([{ id: "row-1" }])]);
+
+    const res = await POST(postRequest(imageFile("avatar.png", "image/png")));
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "UNAUTHORIZED" });
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("GET /api/profile/image", () => {
   test("저장된 경로가 있으면 200과 image_path(버킷명 이후 경로)를 반환한다", async () => {
-    stubBackend([pgRows([{ id: "row-1", image_path: "old-uuid.png" }])]);
+    const calls = stubBackend([
+      pgRows([{ id: "row-1", image_path: "old-uuid.png" }]),
+    ]);
 
     const res = await GET();
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ imagePath: "old-uuid.png" });
+    // 본인(user_id) 행만 조회해야 한다 (004-profile-db)
+    expect(calls[0].url).toContain("user_id=eq.user-1");
   });
 
   test("image_path가 NULL이면 200과 null을 반환한다", async () => {

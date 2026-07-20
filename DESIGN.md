@@ -643,14 +643,15 @@
 
     오류 문구는 다음 업로드 시도 시 제거. 평상시(idle·성공)에는 렌더하지 않음
 - **필드 라벨** (`별명` / `이메일`): `font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px`
-- **별명 입력**: `.nk-inp`; `width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary); background: var(--surface-base); margin-bottom: 18px; transition: box-shadow .15s, border-color .15s` — placeholder `별명`. 입력 즉시 상태 반영(레일 아바타 이니셜 등 실시간 갱신)
+- **별명 입력**: `.nk-inp`; `width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; color: var(--text-primary); background: var(--surface-base); margin-bottom: 18px; transition: box-shadow .15s, border-color .15s` — placeholder `별명`. 입력 즉시 상태 반영(레일 아바타 이니셜 등 실시간 갱신). 저장은 `변경 사항 저장` 버튼 클릭 시 DB(`profile.name`)에 반영 (004-profile-db, 앞뒤 공백 제거해 저장)
 - **이메일 입력 (disabled)**: `width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; color: var(--text-tertiary); background: var(--surface-subtle); margin-bottom: 18px` — 항상 비활성(수정 불가)
 - **자기소개 라벨** (`자기소개`): `<label for="nk-intro">` 요소 — 필드 라벨 공통 스타일 + `display: block`
 - **자기소개 입력**: `<textarea id="nk-intro">` `.nk-inp`; `width: 100%; min-height: 120px; resize: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 9px 11px; font-family: var(--font-sans); font-size: 14px; line-height: 1.6; color: var(--text-primary); background: var(--surface-base); display: block; margin-bottom: 6px; transition: box-shadow .15s, border-color .15s`
   - placeholder: `자신을 소개하는 글을 남겨보세요` (미등록 상태)
   - 값은 DB(`profile.introduction`)가 단일 원천 — localStorage에 저장하지 않음.
-    마이페이지는 스토어 하이드레이션 **및 자기소개 조회 완료** 전까지 기존 로딩
-    화면(`flex: 1; background: var(--surface-base)` 빈 div)을 유지한다
+    마이페이지는 스토어 하이드레이션·프로필(DB) 조회 **및 자기소개 조회 완료**
+    전까지 기존 로딩 화면(`flex: 1; background: var(--surface-base)` 빈 div)을
+    유지한다
   - 저장 시 앞뒤 공백·줄바꿈만 있으면 미등록(null)으로 정규화. 줄바꿈·이모지는 그대로 보존
   - **불러오기 실패 상태**: textarea `disabled` + placeholder 미표시(미등록과 오인 방지),
     카운터 자리에 오류 문구 `자기소개를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.`
@@ -663,10 +664,11 @@
     500자 초과 저장본은 조회 시 전체를 그대로 표시하며 잘라내지 않는다.
     초과 상태로 저장 시도 시 요청 없이 안내 문구 `자기소개는 500자까지 저장할 수 있어요.` 표시
 - **`변경 사항 저장` 버튼**: `height: 40px; padding: 0 18px; border: none; border-radius: var(--radius-sm); color: #fff; font-size: 14px; font-weight: 500; transition: background var(--duration-fast) var(--ease-standard)` — default `var(--accent)` / hover `var(--accent-hover)`
-  - 클릭 시 자기소개를 `PUT /api/profile/introduction`으로 저장하고, **성공 시에만** 저장 확인 플래시를 트리거 (별명·프로필 이미지는 기존대로 입력 즉시 저장)
+  - 클릭 시 별명(`PUT /api/profile`)과 자기소개(`PUT /api/profile/introduction`)를 저장하고, **모두 성공 시에만** 저장 확인 플래시를 트리거 (004-profile-db). 자기소개 불러오기 실패 상태에서는 별명만 전송. 프로필 이미지는 선택 즉시 저장(위 파일 입력 항목)
 - **저장 확인 문구**: `저장되었습니다 ✓` — `font-size: 13px; color: var(--text-success)`, 버튼 우측 `gap: 14px`, 1.5초 후 사라짐. 등장/퇴장 애니메이션 없음
 - **저장 오류 문구**: 버튼 우측(확인 문구와 같은 자리) — `font-size: 13px; color: var(--text-danger)`.
   다음 저장 시도 시 제거. 상황별 한국어 문구:
+  - 별명이 공백뿐인 저장 시도: `별명을 입력해 주세요.` (요청 미발생)
   - 500자 초과 저장 시도: `자기소개는 500자까지 저장할 수 있어요.` (요청 미발생)
   - 저장 실패(네트워크/DB): `저장에 실패했습니다. 잠시 후 다시 시도해 주세요.` — 입력값은 유지되어 재시도 가능
 - 로그아웃 버튼은 마이 페이지가 아니라 **전역 헤더 우측**에 있다 (§4.8).
@@ -744,10 +746,11 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 6. **목록 선택**: 행 클릭 → `selectedId` 변경 → 에디터가 해당 글로 전환.
    선택 상태는 메모리 전용(영속하지 않음) — 새로고침하면 최신 생성 글이 선택됨
 7. **아바타 → 마이 페이지**: 레일 하단 아바타 클릭 → `/mypage`. 별명 입력은
-   입력 즉시 반영·저장. 이미지 업로드는 선택 즉시 서버 저장(Storage 업로드 +
-   `profile.image_path` 갱신, 003-profile-image) 후 성공 시에만 아바타 교체.
-   자기소개는 진입 시 DB에서 조회해 표시하고, `변경 사항 저장`
-   버튼 클릭 시 DB에 저장(성공 시에만 확인 플래시)
+   화면에 즉시 반영되고, `변경 사항 저장` 버튼 클릭 시 자기소개와 함께 DB에
+   저장된다 (004-profile-db, 모두 성공 시에만 확인 플래시). 이미지 업로드는
+   선택 즉시 서버 저장(Storage 업로드 + `profile.image_path` 갱신,
+   003-profile-image) 후 성공 시에만 아바타 교체. 자기소개는 진입 시 DB에서
+   조회해 표시
 8. **사이드바 접기/펼치기** (002-sidebar-collapse, 업무 화면 전용): 레일 최상단
    토글 버튼 클릭 → 레일 내용 + 글 목록이 함께 접혀 60px 스트립(토글만)이 남고,
    다시 클릭하면 펼쳐진다. 전환 모션 없음(즉시). 접기는 표시만 바꾼다 — 선택
@@ -764,8 +767,23 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
      글이 없는 계정은 빈 상태에서 시작
    - 목록 로드 동안 목록 영역에 `불러오는 중…` 표시(빈 상태 문구는 로드 완료
      후에만). 조회 실패 시 `글을 불러오지 못했어요.` + `다시 시도`
-   - 프로필: **로그인한 유저는 구글 계정 정보로 시드** — 별명 = `user_metadata.full_name`(없으면 `name`, 그다음 이메일 앞부분), 이메일 = 계정 이메일(수정 불가), 아바타 = 구글 프로필 사진(`avatar_url`/`picture`). 사용자가 바꾼 별명·아바타는 localStorage에 유지된다. `DEFAULT_PROFILE`(닉네임 `경현`, 이메일 `kyunghyun@gmail.com`)은 유저가 없을 때(예: 단위 테스트)만 쓰이는 폴백.
-   - 저장 키: 프로필 `mini-nook-v1`(글·선택 상태는 저장하지 않음), 테마 `nook-theme`. **인증은 localStorage가 아니라 Supabase 세션 쿠키**로 관리(구 `nook-auth` 플래그 제거).
+   - 프로필: **DB `profile` 테이블이 단일 원천** (004-profile-db) — 별명 =
+     `name`, 이미지 경로 = `image_path`, 자기소개 = `introduction`. 로그인 시
+     스토어가 `GET /api/profile`로 별명·이미지를 조회해 반영하고, DB 값이
+     없거나 조회 전·실패 시에는 구글 계정 폴백을 쓴다 — 별명 =
+     `user_metadata.full_name`(없으면 `name`, 그다음 이메일 앞부분), 아바타 =
+     구글 프로필 사진(`avatar_url`/`picture`). 이메일 = 계정 이메일(수정 불가,
+     항상 계정 값). 프로필은 localStorage에 저장하지 않는다(구 `mini-nook-v1`
+     프로필 영속은 004에서 제거). `DEFAULT_PROFILE`(닉네임 `경현`, 이메일
+     `kyunghyun@gmail.com`)은 유저가 없을 때(예: 단위 테스트)만 쓰이는 폴백.
+   - 프로필 API 공통 규칙 (004-profile-db): 서버 라우트(`/api/profile`,
+     `/api/profile/introduction`, `/api/profile/image`)는 쿠키 세션으로 로그인
+     유저를 확인(미로그인 401)한 뒤 서비스 롤 키로 본인(`user_id`) profile
+     행만 읽고 쓴다 (`lib/server/profile.ts` — 구 "created_at 첫 행" 단일
+     사용자 규칙 대체).
+   - 저장 키: 테마 `nook-theme`만. 글·선택 상태·프로필은 localStorage에
+     저장하지 않는다(구 `mini-nook-v1` 제거). **인증은 localStorage가 아니라
+     Supabase 세션 쿠키**로 관리(구 `nook-auth` 플래그 제거).
    - 자기소개: Supabase `profile.introduction` 컬럼이 단일 원천 —
      `/api/profile/introduction`(GET/PUT, 서버 라우트)을 통해 조회·저장하며
      localStorage에 저장하지 않는다 (002-profile-introduction)
@@ -774,10 +792,10 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
      `/api/profile/image`(GET/POST, 서버 라우트) 경유. DB `profile.image_path`
      컬럼에는 **버킷명 이후 경로**만 기록하고, 표시 URL은
      `NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL`(스토리지 주소~버킷명) + `/` +
-     `image_path`로 조합한다 (`lib/profile-image.ts`). 마이 페이지 진입 시
-     DB 값으로 아바타를 동기화(실패 시 기존 아바타/이니셜 유지, 화면 비차단)하고,
-     업로드 성공 시 이전 파일은 스토리지에서 삭제한다. 조합된 URL은 기존대로
-     localStorage 프로필에 캐시되어 레일·에디터 아바타에 즉시 반영
+     `image_path`로 조합한다 (`lib/profile-image.ts`). 로그인 시 스토어가 DB
+     값으로 아바타를 동기화(실패 시 구글 사진/이니셜 폴백, 화면 비차단)해
+     레일·에디터·마이 페이지 아바타에 반영하고, 업로드 성공 시 이전 파일은
+     스토리지에서 삭제한다
 
 ---
 

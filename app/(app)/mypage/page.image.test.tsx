@@ -1,10 +1,10 @@
-// 마이페이지 프로필 이미지 업로드 UI 테스트 (003-profile-image)
+// 마이페이지 프로필 이미지 업로드 UI 테스트 (003-profile-image, 004-profile-db)
 // 실제 스토어(NookProvider) 사용 — 모킹은 /api 네트워크 경계(global fetch)만.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { User } from "@supabase/supabase-js";
 import MyPage from "@/app/(app)/mypage/page";
 import { NookProvider } from "@/lib/store";
-import { DEFAULT_PROFILE, LS_KEY } from "@/lib/data";
 import { PROFILE_IMAGE_MAX_BYTES } from "@/lib/profile-image";
 
 vi.mock("next/navigation", () => ({
@@ -18,7 +18,18 @@ const UPLOADING = "이미지를 업로드하는 중…";
 const UPLOAD_ERROR =
   "이미지 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
-type ImageJson = { imagePath?: string | null; error?: string };
+// 프로필 시드용 최소 유저 — 스토어가 있을 때만 DB 프로필을 조회한다.
+const TEST_USER = {
+  id: "user-1",
+  email: "tester@nook.dev",
+  user_metadata: {},
+} as unknown as User;
+
+type ImageJson = {
+  imagePath?: string | null;
+  name?: string | null;
+  error?: string;
+};
 
 function jsonResponse(ok: boolean, body: unknown) {
   return { ok, json: async () => body };
@@ -26,32 +37,36 @@ function jsonResponse(ok: boolean, body: unknown) {
 
 /** URL별로 라우팅하는 fetch 스텁 — 자기소개 GET은 항상 미등록으로 응답한다. */
 function stubApi(options: {
-  imageGet?: { ok: boolean; body: ImageJson };
+  profileGet?: { ok: boolean; body: ImageJson };
   imagePost?: { ok: boolean; body: ImageJson } | (() => Promise<never>);
 }) {
   const fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
     const u = String(url);
-    if (u.includes("/api/profile/image")) {
-      if (init?.method === "POST") {
-        const post = options.imagePost ?? {
-          ok: true,
-          body: { imagePath: null },
-        };
-        if (typeof post === "function") return post();
-        return jsonResponse(post.ok, post.body);
-      }
-      const get = options.imageGet ?? { ok: true, body: { imagePath: null } };
-      return jsonResponse(get.ok, get.body);
+    if (u.includes("/api/profile/image") && init?.method === "POST") {
+      const post = options.imagePost ?? {
+        ok: true,
+        body: { imagePath: null },
+      };
+      if (typeof post === "function") return post();
+      return jsonResponse(post.ok, post.body);
     }
-    return jsonResponse(true, { introduction: null });
+    if (u.includes("/api/profile/introduction")) {
+      return jsonResponse(true, { introduction: null });
+    }
+    // 스토어의 프로필 조회 (GET /api/profile)
+    const get = options.profileGet ?? {
+      ok: true,
+      body: { name: null, imagePath: null },
+    };
+    return jsonResponse(get.ok, get.body);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
-function renderMyPage() {
+function renderMyPage(user?: User) {
   return render(
-    <NookProvider>
+    <NookProvider user={user}>
       <MyPage />
     </NookProvider>
   );
@@ -82,7 +97,6 @@ function postCalls(fetchMock: ReturnType<typeof vi.fn>) {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL", BASE_URL);
   localStorage.clear();
-  localStorage.setItem(LS_KEY, JSON.stringify({ profile: DEFAULT_PROFILE }));
 });
 
 afterEach(() => {
@@ -90,11 +104,16 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("마이페이지 프로필 이미지 — DB 동기화", () => {
+describe("마이페이지 프로필 이미지 — DB 동기화 (004-profile-db)", () => {
   test("저장된 image_path가 있으면 환경변수 앞부분과 조합한 URL로 아바타를 표시한다", async () => {
-    stubApi({ imageGet: { ok: true, body: { imagePath: "abc.png" } } });
+    stubApi({
+      profileGet: {
+        ok: true,
+        body: { name: "테스터", imagePath: "abc.png" },
+      },
+    });
 
-    renderMyPage();
+    renderMyPage(TEST_USER);
     await screen.findByLabelText(FILE_INPUT);
 
     await waitFor(() => {
@@ -102,12 +121,13 @@ describe("마이페이지 프로필 이미지 — DB 동기화", () => {
     });
   });
 
-  test("경로 조회가 실패해도 화면은 표시되고 이니셜 폴백을 유지한다", async () => {
-    stubApi({ imageGet: { ok: false, body: { error: "LOAD_FAILED" } } });
+  test("프로필 조회가 실패해도 화면은 표시되고 이니셜 폴백을 유지한다", async () => {
+    stubApi({ profileGet: { ok: false, body: {} } });
 
-    renderMyPage();
+    renderMyPage(TEST_USER);
 
     expect(await screen.findByLabelText(FILE_INPUT)).toBeInTheDocument();
+    // TEST_USER 는 구글 사진이 없다 — 이미지 없이 이니셜 폴백
     expect(document.querySelectorAll("img")).toHaveLength(0);
   });
 });
@@ -151,7 +171,7 @@ describe("마이페이지 프로필 이미지 — 업로드", () => {
     upload(pngFile());
 
     expect(await screen.findByText(UPLOAD_ERROR)).toBeInTheDocument();
-    // DEFAULT_PROFILE.avatar = null — 실패 시 이니셜 폴백 유지
+    // 기본 프로필은 아바타가 없다 — 실패 시 이니셜 폴백 유지
     expect(document.querySelectorAll("img")).toHaveLength(0);
   });
 });
