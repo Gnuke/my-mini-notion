@@ -2,21 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthed, signIn } from "@/lib/auth";
+import { signInWithGoogle } from "@/lib/auth";
+import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { GoogleIcon } from "@/components/icons";
 
 export default function LoginPage() {
   const router = useRouter();
   const [hover, setHover] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
 
-  // Already signed in → skip straight to the workspace.
+  // 이미 로그인돼 있으면 곧바로 업무 페이지로. 콜백 실패 시 ?error 표시.
   useEffect(() => {
-    if (isAuthed()) router.replace("/");
+    if (new URLSearchParams(window.location.search).get("error")) {
+      setError(true);
+    }
+    const supabase = getSupabaseBrowser();
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace("/");
+    });
   }, [router]);
 
-  function handleLogin() {
-    signIn();
-    router.replace("/");
+  async function handleLogin() {
+    if (busy) return;
+    setBusy(true);
+    setError(false);
+    try {
+      await signInWithGoogle();
+      // 성공하면 구글 동의 화면으로 리다이렉트되어 이 아래는 실행되지 않는다.
+    } catch {
+      setError(true);
+      setBusy(false);
+    }
   }
 
   return (
@@ -90,6 +107,7 @@ export default function LoginPage() {
 
         <button
           onClick={handleLogin}
+          disabled={busy}
           onMouseEnter={() => setHover(true)}
           onMouseLeave={() => setHover(false)}
           style={{
@@ -105,13 +123,28 @@ export default function LoginPage() {
             color: "var(--text-primary)",
             fontSize: 15,
             fontWeight: 500,
-            cursor: "pointer",
+            cursor: busy ? "default" : "pointer",
+            opacity: busy ? 0.6 : 1,
             transition: "background var(--duration-base) var(--ease-standard)",
           }}
         >
           <GoogleIcon size={18} />
-          구글로 로그인
+          {busy ? "구글로 이동 중…" : "구글로 로그인"}
         </button>
+
+        {error && (
+          <p
+            role="alert"
+            style={{
+              margin: "14px 0 0",
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: "var(--text-danger)",
+            }}
+          >
+            로그인에 실패했어요. 잠시 후 다시 시도해 주세요.
+          </p>
+        )}
 
         <p
           style={{

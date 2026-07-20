@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   DEFAULT_PROFILE,
   LS_KEY,
@@ -17,6 +18,19 @@ import {
   uid,
   type NookData,
 } from "./data";
+
+/** 구글 계정(Supabase user)에서 프로필 초기값을 뽑아낸다. */
+function profileFromUser(user: User): Profile {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (meta.full_name as string) ||
+    (meta.name as string) ||
+    user.email?.split("@")[0] ||
+    "사용자";
+  const avatar =
+    (meta.avatar_url as string) || (meta.picture as string) || null;
+  return { nickname: name, email: user.email ?? "", avatar };
+}
 
 interface NookStore {
   loaded: boolean;
@@ -36,7 +50,13 @@ interface NookStore {
 
 const Ctx = createContext<NookStore | null>(null);
 
-export function NookProvider({ children }: { children: React.ReactNode }) {
+export function NookProvider({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user?: User | null;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -55,9 +75,25 @@ export function NookProvider({ children }: { children: React.ReactNode }) {
     const seeded = data.posts && data.posts.length ? data.posts : makeSeed();
     setPosts(seeded);
     setSelectedId(data.selectedId ?? seeded[0]?.id ?? null);
-    setProfile(data.profile ?? DEFAULT_PROFILE);
+
+    // 프로필: 로그인된 유저가 있으면 구글 계정 정보로 시드하되,
+    // 사용자가 직접 바꾼 별명/이미지(localStorage)는 유지한다.
+    // 이메일은 항상 실제 계정 값을 신뢰(수정 불가).
+    if (user) {
+      const base = profileFromUser(user);
+      const saved = data.profile;
+      setProfile({
+        nickname: saved?.nickname || base.nickname,
+        email: base.email,
+        avatar: saved?.avatar ?? base.avatar,
+      });
+    } else {
+      setProfile(data.profile ?? DEFAULT_PROFILE);
+    }
     setLoaded(true);
-  }, []);
+    // user?.id 가 바뀔 때만 다시 시드.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Persist whenever the meaningful slices change.
   useEffect(() => {

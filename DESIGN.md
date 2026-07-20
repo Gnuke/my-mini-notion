@@ -274,16 +274,19 @@
 ### 3.2 업무 페이지 (`/`) — 3분할
 
 ```
-┌──┬─────────┬──────────────────────────┐
-│레 │  글 목록  │        에디터 / 빈 상태     │
-│일 │  256px  │        flex: 1           │
-│60│ (canvas)│      (surface-base)      │
-│px│         │                          │
+┌──┬──────────────────────────────────────┐
+│레 │        전역 헤더 44px        [로그아웃] │
+│일 ├─────────┬──────────────────────────┤
+│60│  글 목록  │        에디터 / 빈 상태     │
+│px│  256px  │        flex: 1           │
+│  │ (canvas)│      (surface-base)      │
 └──┴─────────┴──────────────────────────┘
 ```
 
-- 앱 셸(`(app)/layout.tsx`): `height: 100vh; display: flex; background: var(--surface-base); color: var(--text-primary); overflow: hidden`
-- 인증 확인 전: 내용 없는 `<div style="height: 100vh; background: var(--surface-canvas)">` (앱 플래시 방지)
+- 앱 셸(`(app)/layout.tsx`): `height: 100vh; display: flex; background: var(--surface-base); color: var(--text-primary); overflow: hidden`. 레일 오른쪽은 세로 컬럼(`flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden`)으로 **헤더(44px) → 콘텐츠 영역** 순으로 쌓인다.
+- 전역 헤더: `height: 44px; flex: none; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-base)` — 우측에 로그아웃 버튼(§4.8). 모든 앱 화면(`/`·`/mypage`·빈 상태)에서 항상 표시.
+- 콘텐츠 영역: `flex: 1; min-width: 0; display: flex; overflow: hidden` — 이 안에 글 목록·에디터(또는 마이 페이지)가 들어간다.
+- 인증 확인 전: 내용 없는 `<div style="height: 100vh; background: var(--surface-canvas)">` (앱 플래시 방지, 헤더 없음)
 - 스토어 하이드레이션 전(`page.tsx`): `<div style="flex: 1; background: var(--surface-base)">`
 - 1열 아이콘 레일: `width: 60px; flex: none` — 스크롤 없음, 세로 flex
 - 2열 글 목록: `width: 256px; flex: none` — 목록 영역만 `overflow-y: auto`
@@ -314,7 +317,7 @@
 - 컨테이너: `width: 60px; flex: none; background: var(--surface-sidebar); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0`
 - 구성(위→아래): 워크스페이스 타일 → 홈 버튼 → 새 글 버튼 → 스페이서(`flex: 1`) → 아바타 버튼
 
-**워크스페이스 타일** (클릭 불가, `title="경현의 워크스페이스"`):
+**워크스페이스 타일** (클릭 불가, `title="{닉네임}의 워크스페이스"` — 닉네임 없으면 `나의 워크스페이스`):
 `34×34px; border-radius: var(--radius-md); background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; margin-bottom: 8px` — 내용은 닉네임 첫 글자
 (닉네임 공백/없음이면 `?`).
 
@@ -499,8 +502,11 @@
 - **설명**: `개인 업무를 기록하는` + 줄바꿈 + `나만의 작은 공간` —
   `margin: 10px 0 34px; font-size: 15px; line-height: 1.55; color: var(--text-tertiary)`
 - **`구글로 로그인` 버튼**: `width: 100%; inline-flex 가운데; gap: 10px; padding: 11px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-strong); color: var(--text-primary); font-size: 15px; font-weight: 500; transition: background var(--duration-base) var(--ease-standard)`
-  - default `var(--surface-base)` / hover `var(--surface-subtle)` / active·focus·disabled 미구현
+  - default `var(--surface-base)` / hover `var(--surface-subtle)` / active·focus 미구현
+  - 클릭 시 `signInWithGoogle()`로 실제 구글 OAuth를 시작한다. 진행 중(`busy`)에는 `disabled`, `opacity: 0.6`, `cursor: default`, 라벨이 `구글로 이동 중…`으로 바뀐다.
   - 좌측에 `GoogleIcon` 18px (구글 브랜드 4색 "G": `#EA4335 #4285F4 #FBBC05 #34A853` — 앱에서 브랜드 컬러를 쓰는 유일한 곳)
+- **로그인 실패 안내** (콜백 실패 `?error=auth` 또는 OAuth 시작 예외 시에만 표시): `로그인에 실패했어요. 잠시 후 다시 시도해 주세요.` —
+  `role="alert"; margin: 14px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-danger)`
 - **안내 문구**: `로그인하면 내 글이 이 브라우저에 안전하게 저장됩니다.` —
   `margin: 22px 0 0; font-size: 12px; line-height: 1.6; color: var(--text-tertiary)`
 
@@ -521,6 +527,7 @@
 - **`변경 사항 저장` 버튼**: `height: 40px; padding: 0 18px; border: none; border-radius: var(--radius-sm); color: #fff; font-size: 14px; font-weight: 500; transition: background var(--duration-fast) var(--ease-standard)` — default `var(--accent)` / hover `var(--accent-hover)`
   - 클릭 시 실제 저장 동작은 없음(입력 즉시 저장되는 구조) — 저장 확인 플래시만 트리거
 - **저장 확인 문구**: `저장되었습니다 ✓` — `font-size: 13px; color: var(--text-success)`, 버튼 우측 `gap: 14px`, 1.5초 후 사라짐. 등장/퇴장 애니메이션 없음
+- 로그아웃 버튼은 마이 페이지가 아니라 **전역 헤더 우측**에 있다 (§4.8).
 
 ### 4.7 아이콘 (`components/icons.tsx`)
 
@@ -536,6 +543,16 @@ Lucide 스타일 라인 아이콘. 공통 속성: `viewBox="0 0 24 24"; fill: no
 | `GoogleIcon` | 18px | 로그인 버튼 (viewBox 0 0 48 48, 브랜드 4색 fill, `aria-hidden`) |
 
 > 삭제·커버 추가 버튼은 아이콘 대신 텍스트/이모지(`🖼`)를 사용한다.
+
+### 4.8 전역 헤더 · 로그아웃 버튼 (`app/(app)/layout.tsx`, `components/LogoutButton.tsx`)
+
+레일 오른쪽 콘텐츠 컬럼 최상단의 얇은 헤더 바. 모든 앱 화면에서 항상 표시되며 우측에 로그아웃 버튼만 둔다.
+
+- 헤더 바: `height: 44px; flex: none; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-base)`
+- **`로그아웃` 버튼** (`LogoutButton`, `title/aria-label="로그아웃"`): `height: 30px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 13px; font-weight: 500; transition: background var(--duration-fast) var(--ease-standard)`
+  - default 배경 `var(--surface-base)` / hover `var(--surface-subtle)` / focus 미구현
+  - 진행 중(`loggingOut`)에는 `disabled`, `opacity: 0.6`, `cursor: default`, 라벨이 `로그아웃 중…`으로 바뀜
+  - 클릭 → `signOut()`(Supabase 세션 종료) 후 `/login`으로 `router.replace`
 
 ---
 
@@ -554,10 +571,12 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
                  아바타 클릭 ───▶ /mypage (별명 · 프로필 이미지)
 ```
 
-1. **로그인 가드** (양방향):
-   - 미로그인 상태로 `/` 또는 `/mypage` 접근 → `/login`으로 `router.replace`. 확인 전까지는 `--surface-canvas` 빈 화면 표시(플래시 방지)
-   - 로그인 상태로 `/login` 접근 → `/`로 `router.replace`
-   - 인증은 모의 구현: localStorage `nook-auth` = `"1"` 플래그 (`lib/auth.ts`). 로그아웃 UI는 미구현(`signOut()` 함수만 존재)
+1. **로그인 가드** (양방향, 실제 Supabase Auth):
+   - 인증은 **Supabase Auth + Google OAuth 2.0**. 세션은 `@supabase/ssr`가 쿠키에 저장하며, 서버(미들웨어·콜백 라우트)와 클라이언트가 세션을 공유한다.
+   - **미들웨어**(`middleware.ts`)가 1차 가드: 미로그인 상태로 앱 경로 접근 → `/login` 리다이렉트, 로그인 상태로 `/login` 접근 → `/` 리다이렉트. 정적 자산·`/auth/*`는 통과.
+   - 클라이언트 2차 가드(`(app)/layout.tsx`): `getUser()`로 확인, 미로그인이면 `/login`으로 `router.replace`. 확인 전까지는 `--surface-canvas` 빈 화면(플래시 방지). `onAuthStateChange`로 로그아웃·세션 만료를 감지하면 `/login`으로 이동.
+   - 로그인 흐름: `/login`의 `구글로 로그인` → `signInWithOAuth('google')` → 구글 동의 화면 → `/auth/callback`(서버 라우트)에서 인가 코드를 세션으로 교환(PKCE) → `/`. 실패 시 `/login?error=auth`로 복귀.
+   - **로그아웃**: 전역 헤더 우측 상단 `로그아웃` 버튼(§4.8) → `supabase.auth.signOut()` → `/login` (`lib/auth.ts`).
 2. **새 글 생성** (3가지 진입점, 동일 동작):
    - 목록 명령 입력창에 `/page`(또는 `/new`, `/page ...`) 입력 후 Enter
    - 목록 헤더 `＋ 새 글` 버튼 / 빈 상태 `＋ 새 글 만들기` 버튼
@@ -577,8 +596,8 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    - 최초 방문(저장된 글 없음) 시 시드 5개 자동 생성 — 제목: `미니 노션 PRD 정리`(🗺️, blue 커버),
      `Google OAuth 2.0 연동 기록`(⚙️), `React로 /page 슬래시 명령 구현`(🧩),
      `Supabase로 글 데이터 저장하기`(🗄️), `MVP 체크리스트`(✅) — 각각 5시간·26시간·2일·6일·9일 전 타임스탬프
-   - 기본 프로필: 닉네임 `경현`, 이메일 `kyunghyun@gmail.com`, 아바타 없음
-   - 저장 키: 글/프로필 `mini-nook-v1`, 인증 `nook-auth`
+   - 프로필: **로그인한 유저는 구글 계정 정보로 시드** — 별명 = `user_metadata.full_name`(없으면 `name`, 그다음 이메일 앞부분), 이메일 = 계정 이메일(수정 불가), 아바타 = 구글 프로필 사진(`avatar_url`/`picture`). 사용자가 바꾼 별명·아바타는 localStorage에 유지된다. `DEFAULT_PROFILE`(닉네임 `경현`, 이메일 `kyunghyun@gmail.com`)은 유저가 없을 때(예: 단위 테스트)만 쓰이는 폴백.
+   - 저장 키: 글/프로필 `mini-nook-v1`. **인증은 localStorage가 아니라 Supabase 세션 쿠키**로 관리(구 `nook-auth` 플래그 제거).
 
 ---
 
@@ -612,7 +631,7 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 
 | 항목 | 참조 이미지 | Nook 구현 |
 | --- | --- | --- |
-| 상단 글로벌 바 | 로고·워크스페이스명·알림/조직도/검색/도움말/앱/메뉴 아이콘의 가로 탑바 존재 | 없음 (세로 아이콘 레일로 대체) |
+| 상단 글로벌 바 | 로고·워크스페이스명·알림/조직도/검색/도움말/앱/메뉴 아이콘의 가로 탑바 존재 | 최소 헤더만 존재 — 우측에 로그아웃 버튼 하나(§4.8). 나머지 탐색은 세로 아이콘 레일 |
 | 사이드바 | 넓은 텍스트 사이드바 — 홈, 대화방 검색(Cmd+J), 토픽/채팅/앱 아코디언 섹션, 즐겨찾기 별 | 60px 아이콘 레일 + 256px 글 목록 패널 (2단) |
 | 메인 영역 | AI 어시스턴트 홈 — 인사말, 제안 칩 3개, 프롬프트 입력창, 요약/바로가기 카드, 일정·할 일 위젯(도넛 차트) | 문서 에디터 (커버·이모지·제목·본문) 또는 빈 상태 |
 | 검색 | 사이드바 상단 대화방 검색 + 단축키 배지(Cmd+J) | 글 목록 상단 검색 입력 (단축키 없음) |

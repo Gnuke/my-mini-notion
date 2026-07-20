@@ -1,4 +1,33 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write|NotebookEdit|Grep|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/protect-env.js\"",
+            "shell": "bash",
+            "timeout": 15,
+            "statusMessage": ".env 보호 검사 중..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/scan-env-hardcoding.js\"",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "하드코딩된 환경설정 검사 중..."
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true
   }

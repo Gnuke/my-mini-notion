@@ -1,11 +1,40 @@
+# dependencies
 /node_modules
+
+# next.js 빌드 산출물
 /.next/
 /out/
 /build
-.DS_Store
+
+# 테스트 커버리지
+/coverage
+
+# 환경변수 — 모든 .env* 차단, 템플릿(.env.example)만 커밋 허용
+.env*
+!.env.example
+
+# Claude Code 로컬 전용 설정·캐시
+.claude/settings.local.json
+.claude/.env-scan-cache
+.claude/worktrees/
+
+# 인증서·키
 *.pem
+*.key
+*.p12
+*.pfx
+
+# 로그
 npm-debug.log*
-.env*.local
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS 잡동사니
+.DS_Store
+Thumbs.db
+
+# 기타
 next-env.d.ts
 .vercel
 *.tsbuildinfo

@@ -25,7 +25,6 @@ export interface NookData {
 }
 
 export const LS_KEY = "mini-nook-v1";
-export const AUTH_KEY = "nook-auth";
 
 export const EMOJIS = [
   "🗺️", "⚙️", "🧩", "🗄️", "✅", "📝", "💡", "📌",

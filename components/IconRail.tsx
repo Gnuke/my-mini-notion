@@ -71,7 +71,7 @@ export default function IconRail() {
       }}
     >
       <div
-        title="경현의 워크스페이스"
+        title={`${profile.nickname || "나"}의 워크스페이스`}
         style={{
           width: 34,
           height: 34,
