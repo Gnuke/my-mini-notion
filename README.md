@@ -8,6 +8,7 @@
 
 ```bash
 npm install
+cp .env.example .env.local   # Supabase URL·anon key 입력 (대시보드 → Settings → API)
 npm run dev      # http://localhost:3000
 ```
 
@@ -36,7 +37,7 @@ npm run build && npm start
                                  │
                  '/page' 입력 ──▶ 새 글 생성 → 목록에 추가 · 에디터 열림
                                  │
-                 글 클릭 ───────▶ 상세 편집(제목·이모지·커버·본문) · 자동 저장
+                 글 클릭 ───────▶ 상세 편집(제목·본문) · 자동 저장(서버)
                                  │                         └ 삭제(확인) → 목록으로
                                  │
                  아바타 클릭 ───▶ /mypage (별명 · 프로필 이미지)
@@ -46,7 +47,8 @@ npm run build && npm start
   로그인해야 업무/마이 페이지 접근 가능. 로그아웃은 오른쪽 상단 헤더.
 - **업무 페이지** (`/`) — 왼쪽 아이콘 레일 + 글 목록 + 에디터의 3분할. 목록에서 검색,
   `/page` 입력 후 Enter 또는 `＋ 새 글`로 생성.
-- **글 상세** — 이모지·커버 선택, 제목/본문 편집, 입력 시 자동 저장, 삭제 확인 팝오버.
+- **글 상세** — 제목/본문 편집, 입력을 멈추면 서버에 자동 저장(성공 시 `저장됨 ✓`),
+  삭제 확인 팝오버.
 - **마이 페이지** (`/mypage`) — 별명 변경, 프로필 이미지 업로드.
 
 ## 구조
@@ -65,11 +67,13 @@ middleware.ts           세션 갱신 + 라우트 가드
 components/
   IconRail.tsx  PostList.tsx  Editor.tsx  EmptyState.tsx  icons.tsx  LogoutButton.tsx
 lib/
-  data.ts               타입 · 시드 데이터 · 시간 표기 헬퍼
-  store.tsx             글/프로필 상태 Context (localStorage 영속)
+  data.ts               타입 · 시간 표기 헬퍼
+  pages.ts              page 테이블 CRUD + row↔Post 매핑
+  store.tsx             글/프로필 상태 Context (글: Supabase, 프로필: localStorage)
   auth.ts               구글 OAuth 로그인/로그아웃 (Supabase Auth)
-  supabase/client.ts    브라우저 Supabase 클라이언트
+  supabase/client.ts    브라우저 Supabase 클라이언트 (@supabase/ssr)
   supabase/server.ts    서버 Supabase 클라이언트(콜백·미들웨어용)
+supabase/migrations/    page 테이블 RLS 정책 마이그레이션
 app/fonts/PretendardVariable.woff2   브랜드 서체(로컬 번들)
 ```
 
@@ -87,9 +91,11 @@ app/fonts/PretendardVariable.woff2   브랜드 서체(로컬 번들)
 
 ## 데이터 저장
 
-글과 프로필(편집분)은 아직 브라우저 **localStorage**(`mini-nook-v1`)에 저장됩니다.
-Supabase에는 인증 대상 테이블(`page`, `profile`)이 준비돼 있으며, 글 데이터를 DB로
-옮기는 것은 다음 단계입니다. (`lib/store.tsx`의 localStorage 영속 로직을 유저별 DB 호출로 교체)
+글은 **Supabase `page` 테이블**에 로그인한 계정(user_id) 기준으로 저장되어
+새로고침·재로그인·다른 기기에서도 유지됩니다. RLS(행 수준 보안) 정책이 자신의 글만
+조회·수정·삭제할 수 있도록 DB 수준에서 강제합니다
+(`supabase/migrations/20260716_page_rls_policies.sql`). 프로필(별명·이미지)은 기존대로
+브라우저 localStorage(`mini-nook-v1`)에 저장됩니다.
 
 ---
 

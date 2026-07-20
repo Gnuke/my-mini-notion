@@ -5,11 +5,11 @@
 // 저장하므로 미들웨어(서버 가드)와 클라이언트가 세션을 공유한다.
 "use client";
 
-import { getSupabaseBrowser } from "./supabase/client";
+import { getSupabase } from "./supabase/client";
 
 /** 구글 OAuth 동의 화면으로 이동한다. 성공 시 /auth/callback 으로 돌아온다. */
 export async function signInWithGoogle() {
-  const supabase = getSupabaseBrowser();
+  const supabase = getSupabase();
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
@@ -21,6 +21,6 @@ export async function signInWithGoogle() {
 
 /** 로그아웃 — 세션 쿠키를 제거한다. 이후 라우팅은 호출부/미들웨어가 처리. */
 export async function signOut() {
-  const supabase = getSupabaseBrowser();
+  const supabase = getSupabase();
   await supabase.auth.signOut();
 }

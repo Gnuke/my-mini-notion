@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useNook } from "@/lib/store";
 
 export default function MyPage() {
-  const { loaded, profile, setNickname, setAvatar, saved, flash } = useNook();
+  const { loading, profile, setNickname, setAvatar, saved, flash } = useNook();
   const [saveHover, setSaveHover] = useState(false);
 
-  if (!loaded) {
+  if (loading) {
     return <div style={{ flex: 1, background: "var(--surface-base)" }} />;
   }
 

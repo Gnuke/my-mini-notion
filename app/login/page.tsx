@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithGoogle } from "@/lib/auth";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getSupabase } from "@/lib/supabase/client";
 import { GoogleIcon } from "@/components/icons";
 
 export default function LoginPage() {
@@ -17,7 +17,7 @@ export default function LoginPage() {
     if (new URLSearchParams(window.location.search).get("error")) {
       setError(true);
     }
-    const supabase = getSupabaseBrowser();
+    const supabase = getSupabase();
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace("/");
     });
@@ -154,7 +154,7 @@ export default function LoginPage() {
             color: "var(--text-tertiary)",
           }}
         >
-          로그인하면 내 글이 이 브라우저에 안전하게 저장됩니다.
+          로그인하면 내 글이 내 계정에 안전하게 저장됩니다.
         </p>
       </div>
     </main>

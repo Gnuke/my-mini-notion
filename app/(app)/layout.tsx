@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { NookProvider } from "@/lib/store";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getSupabase } from "@/lib/supabase/client";
 import IconRail from "@/components/IconRail";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -14,7 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowser();
+    const supabase = getSupabase();
 
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) {
