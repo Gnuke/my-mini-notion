@@ -67,7 +67,7 @@ export default function MyPage() {
                 borderRadius: "50%",
                 overflow: "hidden",
                 background: "var(--tile-blue)",
-                color: "var(--blue-700)",
+                color: "var(--tile-blue-text)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",

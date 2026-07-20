@@ -76,6 +76,11 @@
 
   --focus-ring: rgba(47, 127, 224, 0.35);
 
+  /* Overlay chips / themable direct-use tints (dark-mode aware) */
+  --surface-overlay: rgba(255, 255, 255, 0.92);
+  --tile-blue-text: var(--blue-700);
+  --danger-subtle: var(--red-50);
+
   /* --- Typography ------------------------------------------------------- */
   --font-sans: var(--font-pretendard), -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
@@ -127,6 +132,47 @@
 
   --sidebar-width: 260px;
   --content-max: 720px;
+}
+
+/* ===========================================================================
+   Dark mode — semantic token overrides only (primitives stay untouched).
+   Palette ported from the Notion dark theme, warmed to match "ink & paper".
+   Activated via <html data-theme="dark">; light values above are the default.
+   =========================================================================== */
+html[data-theme="dark"] {
+  --text-primary: #d6d5d1;
+  --text-secondary: #a5a49d;
+  --text-tertiary: #83837c;
+  --text-disabled: #5f5e58;
+  --text-link: #529cca;
+  --text-accent: #7fb4ec;
+  --text-danger: #eb6e63;
+  --text-success: #4dab77;
+
+  --surface-base: #191919;
+  --surface-canvas: #202020;
+  --surface-subtle: #262625;
+  --surface-hover: #2c2c2b;
+  --surface-active: #373735;
+  --surface-sidebar: #252524;
+  --surface-inverse: #efefed;
+
+  --border-subtle: #2f2f2e;
+  --border-default: #3a3a38;
+  --border-strong: #474743;
+
+  --tile-blue: #243247;
+
+  --surface-overlay: rgba(25, 25, 25, 0.85);
+  --tile-blue-text: #7fb4ec;
+  --danger-subtle: #3d2422;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #3a3a38;
+}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #474743;
 }
 
 /* --- Reset --------------------------------------------------------------- */

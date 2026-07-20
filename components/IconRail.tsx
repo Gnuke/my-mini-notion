@@ -134,7 +134,7 @@ export default function IconRail() {
             borderRadius: "50%",
             overflow: "hidden",
             background: "var(--tile-blue)",
-            color: "var(--blue-700)",
+            color: "var(--tile-blue-text)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

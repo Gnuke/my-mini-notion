@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useNook } from "@/lib/store";
 import { rel } from "@/lib/data";
+import { useTheme } from "@/lib/use-theme";
+import { MoonIcon, SunIcon } from "./icons";
 
 const emptyBlockStyle: React.CSSProperties = {
   padding: "22px 12px",
@@ -23,10 +25,15 @@ export default function PostList() {
     retry,
     createFailed,
   } = useNook();
+  const { theme, toggle } = useTheme();
   const [search, setSearch] = useState("");
   const [cmd, setCmd] = useState("");
   const [addHover, setAddHover] = useState(false);
   const [retryHover, setRetryHover] = useState(false);
+  const [themeHover, setThemeHover] = useState(false);
+
+  const themeLabel =
+    theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환";
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -70,25 +77,51 @@ export default function PostList() {
         }}
       >
         <span style={{ fontSize: 15, fontWeight: 600 }}>내 글</span>
-        <button
-          onClick={() => newPost()}
-          onMouseEnter={() => setAddHover(true)}
-          onMouseLeave={() => setAddHover(false)}
-          style={{
-            height: 28,
-            padding: "0 11px",
-            border: "none",
-            borderRadius: "var(--radius-sm)",
-            background: addHover ? "var(--accent-hover)" : "var(--accent)",
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: "pointer",
-            transition: "background var(--duration-fast) var(--ease-standard)",
-          }}
-        >
-          ＋ 새 글
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={toggle}
+            onMouseEnter={() => setThemeHover(true)}
+            onMouseLeave={() => setThemeHover(false)}
+            title={themeLabel}
+            aria-label={themeLabel}
+            style={{
+              width: 28,
+              height: 28,
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: themeHover ? "var(--surface-hover)" : "transparent",
+              color: "var(--text-tertiary)",
+              cursor: "pointer",
+              transition:
+                "background var(--duration-fast) var(--ease-standard)",
+            }}
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
+          <button
+            onClick={() => newPost()}
+            onMouseEnter={() => setAddHover(true)}
+            onMouseLeave={() => setAddHover(false)}
+            style={{
+              height: 28,
+              padding: "0 11px",
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              background: addHover ? "var(--accent-hover)" : "var(--accent)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition:
+                "background var(--duration-fast) var(--ease-standard)",
+            }}
+          >
+            ＋ 새 글
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: "0 12px 8px" }}>

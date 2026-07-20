@@ -13,6 +13,10 @@
   로그인 → 글 목록 → 상세 편집 → 자동 저장 → 삭제의 최소 흐름만 담은 개인용 노트 도구.
 - **디자인 언어**: Notion풍 플랫(flat) 스타일. 따뜻한 웜 그레이("ink & paper") 중립색 램프 +
   차분한 블루 액센트. 그림자와 모션은 절제, 보더는 얇고 옅게.
+- **모드**: 다크/라이트 2모드. **기본은 다크 모드**(저장된 선택이 없으면 OS 설정과
+  무관하게 다크). 다크 팔레트는 Notion 다크 모드를 레퍼런스로 웜 톤에 맞게 이식 ([§2.7](#27-다크-모드)).
+  전환 토글은 글 목록 패널 헤더([§4.2](#42-postlist-componentspostlisttsx)), 선택은
+  localStorage `nook-theme`에 저장.
 - **디자인 출처**: Claude Design — "Notion 페이지 디자인 계획" (Nook 디자인 시스템 ·
   `미니노션 와이어프레임` · `미니 노션` 프로토타입). 참조 이미지 `03-reference-design.png`와
   구현이 다른 부분은 [§7](#7-참조-이미지와의-차이점)에 별도 정리 (**코드가 정답**).
@@ -22,7 +26,8 @@
 
 ## 2. 디자인 토큰
 
-단일 원천: `app/globals.css`의 `:root` 블록. **커스텀 프로퍼티 총 100개** (전수 기록).
+단일 원천: `app/globals.css`. 라이트 값은 `:root` 블록(**커스텀 프로퍼티 총 103개**, 전수 기록),
+다크 값은 `html[data-theme="dark"]` 블록의 시맨틱 재정의 22개 ([§2.7](#27-다크-모드)).
 아래 표의 "사용처" 열에서 `미사용`은 토큰이 정의만 되어 있고 컴포넌트/전역 스타일 어디에서도
 참조되지 않음을 뜻한다 (미래 확장용으로 유지).
 
@@ -83,7 +88,7 @@
 | `--tile-red` | `#fbeceb` | 미사용 |
 | `--tile-gray` | `#f0f0ee` | 미사용 |
 
-### 2.2 색상 — 시맨틱 별칭 (25개)
+### 2.2 색상 — 시맨틱 별칭 (28개)
 
 프리미티브 → 시맨틱 참조 관계를 그대로 기록.
 
@@ -131,6 +136,16 @@
 | `--accent-active` | `var(--blue-700)` | 미사용 |
 | `--accent-subtle` | `var(--blue-50)` | 미사용 |
 | `--focus-ring` | `rgba(47, 127, 224, 0.35)` | `.nk-inp:focus` 3px 링 |
+
+#### 오버레이·테마 틴트 (3개 — 다크 모드 대응으로 신설, 002-dark-mode)
+
+직접 리터럴/프리미티브 참조 중 다크에서 값이 달라져야 하는 지점을 토큰화한 것.
+
+| 토큰 | 라이트 값 | 사용처 |
+| --- | --- | --- |
+| `--surface-overlay` | `rgba(255, 255, 255, 0.92)` | 커버 버튼 2종·글자 수 배지 배경 (Editor) |
+| `--tile-blue-text` | `var(--blue-700)` | 아바타 이니셜 글자색 (IconRail·Editor 메타·마이 페이지) |
+| `--danger-subtle` | `var(--red-50)` | 에디터 삭제 버튼 hover 배경 |
 
 ### 2.3 타이포그래피 (21개 토큰)
 
@@ -242,12 +257,60 @@
 - **body**: `background: var(--surface-base); color: var(--text-primary); font-family: var(--font-sans)`
 - **링크**: `a { color: var(--text-link); text-decoration: none }`, `a:hover { color: var(--accent-hover) }`
 - **버튼**: `button { font-family: inherit }`
-- **스크롤바** (WebKit): 폭/높이 `10px`; thumb `background: var(--gray-200); border-radius: 6px; border: 2px solid var(--surface-canvas)`; thumb hover `var(--gray-300)`
+- **스크롤바** (WebKit): 폭/높이 `10px`; thumb `background: var(--gray-200); border-radius: 6px; border: 2px solid var(--surface-canvas)`; thumb hover `var(--gray-300)`.
+  다크 모드에서는 thumb `#3a3a38` / hover `#474743`로 재정의 (`html[data-theme="dark"]` 규칙, §2.7) — thumb 보더는 `--surface-canvas` 경유라 자동 적용
 - **placeholder**: `input::placeholder, textarea::placeholder { color: var(--text-tertiary) }`
 - **포커스**: `input:focus, textarea:focus { outline: none }` (기본 아웃라인 제거).
   대신 `.nk-inp` 클래스가 붙은 입력만
   `.nk-inp:focus { border-color: var(--border-focus) !important; box-shadow: 0 0 0 3px var(--focus-ring) }`
-- **뷰포트 메타** (`layout.tsx`): `width=device-width, initialScale 1, themeColor #fbfbfa`
+- **뷰포트 메타** (`layout.tsx`): `width=device-width, initialScale 1, themeColor #191919`
+  (기본 다크 기준 고정 — 모드 전환 시 동적 갱신 없음)
+- **테마 부트스트랩** (`layout.tsx`): `<html lang="ko" data-theme="dark" suppressHydrationWarning>`
+  이 SSR 기본값. `<body>` 최상단 인라인 스크립트(`lib/theme.ts`의 `THEME_INIT_SCRIPT`)가
+  localStorage `nook-theme` === `"light"`일 때만 페인트 전에 속성을 `light`로 전환
+  (그 외 값·부재·예외는 전부 다크 유지 → 반대 모드 플래시 없음)
+
+### 2.7 다크 모드
+
+**메커니즘**: `<html data-theme="dark">`일 때 `html[data-theme="dark"]` 블록이
+**시맨틱 토큰만** 재정의한다(총 22개). 프리미티브 램프(§2.1)는 불변. 컴포넌트는
+전부 토큰을 경유하므로 속성 스왑 한 번으로 전 화면이 전환된다.
+팔레트는 Notion 다크 모드(콘텐츠 `#191919` 위계)를 웜 그레이 톤으로 조정해 이식.
+좌→우 밝기 위계는 라이트의 역방향: 레일 `#252524` > 목록 `#202020` > 에디터 `#191919`.
+
+| 시맨틱 토큰 | 라이트 (기본) | 다크 |
+| --- | --- | --- |
+| `--text-primary` | `var(--gray-1000)` `#1f1e1b` | `#d6d5d1` |
+| `--text-secondary` | `var(--gray-700)` `#57564f` | `#a5a49d` |
+| `--text-tertiary` | `var(--gray-500)` `#8f8f88` | `#83837c` |
+| `--text-disabled` | `var(--gray-400)` `#b6b6b0` | `#5f5e58` |
+| `--text-link` | `#3a7bd0` | `#529cca` |
+| `--text-accent` | `var(--blue-600)` `#2570cb` | `#7fb4ec` |
+| `--text-danger` | `var(--red-600)` `#b8382f` | `#eb6e63` |
+| `--text-success` | `var(--green-600)` `#278052` | `#4dab77` |
+| `--surface-base` | `var(--gray-0)` `#ffffff` | `#191919` |
+| `--surface-canvas` | `var(--gray-25)` `#fbfbfa` | `#202020` |
+| `--surface-subtle` | `var(--gray-50)` `#f7f7f5` | `#262625` |
+| `--surface-hover` | `var(--gray-100)` `#efefed` | `#2c2c2b` |
+| `--surface-active` | `var(--gray-150)` `#e9e9e7` | `#373735` |
+| `--surface-sidebar` | `#f5f5f3` | `#252524` |
+| `--surface-inverse` | `var(--gray-1000)` `#1f1e1b` | `#efefed` |
+| `--border-subtle` | `var(--gray-150)` `#e9e9e7` | `#2f2f2e` |
+| `--border-default` | `var(--gray-200)` `#e0e0dd` | `#3a3a38` |
+| `--border-strong` | `var(--gray-300)` `#d3d3ce` | `#474743` |
+| `--tile-blue` | `#eaf2fb` | `#243247` |
+| `--surface-overlay` | `rgba(255, 255, 255, 0.92)` | `rgba(25, 25, 25, 0.85)` |
+| `--tile-blue-text` | `var(--blue-700)` `#1f5eac` | `#7fb4ec` |
+| `--danger-subtle` | `var(--red-50)` `#fbeceb` | `#3d2422` |
+
+**다크에서도 유지(재정의 없음)**: `--accent`/`--accent-hover`/`--accent-active`
+(블루 버튼은 흰 글자 대비가 배경과 무관), `--border-focus`, `--focus-ring`,
+`--text-on-accent`, 그림자·모션·타이포·radius 토큰, 커버 팔레트(`COVERS` —
+콘텐츠 색으로 간주해 다크에서도 파스텔 유지), 이모지·구글 브랜드 색.
+
+**저장/전환 규칙** (`lib/theme.ts`): 저장 키 `nook-theme`, 값 `"dark" | "light"`.
+읽기는 정확히 `"light"`일 때만 라이트, 그 외 전부(부재·무효·예외) 다크 폴백.
+쓰기는 토글 클릭 시에만. 로그인 화면은 현재 모드를 표시만 하며 전환 수단 없음.
 
 ---
 
@@ -340,7 +403,7 @@
 **아바타 버튼** (`title/aria-label="마이 페이지"`):
 - 외곽 버튼: `38×38px; border: none; background: transparent; border-radius: 50%; padding: 0`
   - `/mypage`에 있을 때: `box-shadow: 0 0 0 2px var(--accent)` (선택 링). 아니면 `none`
-- 내부 아바타: `30×30px; border-radius: 50%; overflow: hidden; background: var(--tile-blue); color: var(--blue-700); font-size: 12px; font-weight: 600` — 프로필 이미지 있으면 `<img>` `object-fit: cover`, 없으면 닉네임 첫 글자
+- 내부 아바타: `30×30px; border-radius: 50%; overflow: hidden; background: var(--tile-blue); color: var(--tile-blue-text); font-size: 12px; font-weight: 600` — 프로필 이미지 있으면 `<img>` `object-fit: cover`, 없으면 닉네임 첫 글자
 - hover 스타일 미구현
 
 ### 4.2 PostList (`components/PostList.tsx`)
@@ -349,8 +412,15 @@
 
 - 컨테이너: `width: 256px; flex: none; background: var(--surface-canvas); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column`
 
-**헤더 행**: `padding: 15px 14px 11px`, 양끝 정렬
+**헤더 행**: `padding: 15px 14px 11px`, 양끝 정렬. 우측은 flex 그룹
+(`gap: 8px`) — 모드 전환 토글 + `＋ 새 글` 순서
 - 타이틀 텍스트: `내 글` — `font-size: 15px; font-weight: 600`
+- **모드 전환 토글 버튼** (002-dark-mode):
+  `28×28px; border: none; border-radius: var(--radius-sm); color: var(--text-tertiary); transition: background var(--duration-fast) var(--ease-standard)`; 내용 가운데 정렬(flex)
+  — default 배경 `transparent` / hover `var(--surface-hover)`(JS) / active·focus·disabled 미구현
+  - 다크 모드일 때: `SunIcon`(16px), `title`/`aria-label="라이트 모드로 전환"`
+  - 라이트 모드일 때: `MoonIcon`(16px), `title`/`aria-label="다크 모드로 전환"`
+  - 클릭 → 모드 즉시 반전(새로고침 없음) + localStorage `nook-theme` 저장. 다른 부수효과 없음
 - **`＋ 새 글` 버튼** (전각 ＋ 문자 포함 라벨):
   `height: 28px; padding: 0 11px; border: none; border-radius: var(--radius-sm); color: #fff; font-size: 13px; font-weight: 500; transition: background var(--duration-fast) var(--ease-standard)`
   — default `var(--accent)` / hover `var(--accent-hover)` / active·focus·disabled 미구현
@@ -438,7 +508,7 @@
     실패 상태에서도 편집 중 내용은 화면에 유지되며, 다음 서버 저장 성공 시
     평상시로 복귀
   - **삭제 버튼**: `삭제` — `font-size: 13px; color: var(--text-danger); padding: 4px 8px; border-radius: var(--radius-sm); border: none; gap: 5px(inline-flex)`
-    — default 배경 `transparent` / hover `var(--red-50)` / 클릭 → 확인 팝오버 열림
+    — default 배경 `transparent` / hover `var(--danger-subtle)` / 클릭 → 확인 팝오버 열림
 
 #### 삭제 확인 팝오버
 
@@ -466,7 +536,7 @@
 #### 작성자 메타 줄
 
 - `display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-tertiary); margin-bottom: 26px`
-- 아바타: `20×20px; border-radius: 50%; background: var(--tile-blue); color: var(--blue-700); font-size: 10px; font-weight: 600` — 이미지 또는 이니셜
+- 아바타: `20×20px; border-radius: 50%; background: var(--tile-blue); color: var(--tile-blue-text); font-size: 10px; font-weight: 600` — 이미지 또는 이니셜
 - 내용: `{닉네임}` `·` `{rel(created)} 작성됨` (생성 시각 기준 — `updated`는
   저장 컬럼이 없어 제거됨)
 
@@ -480,7 +550,7 @@
 #### 글자 수 배지
 
 - Editor 루트에 `position: relative` 적용, 배지는 그 안에 `position: absolute; right: 18px; bottom: 12px`로 고정 — 본문 스크롤과 무관하게 위치 불변
-- 스타일: `background: rgba(255,255,255,.92); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 4px 9px; font-size: 12px; color: var(--text-tertiary); pointer-events: none; user-select: none` (z-index 미지정 — 다른 팝오버가 항상 위)
+- 스타일: `background: var(--surface-overlay); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 4px 9px; font-size: 12px; color: var(--text-tertiary); pointer-events: none; user-select: none` (z-index 미지정 — 다른 팝오버가 항상 위)
 - 내용: `{countChars(본문)}자` (`lib/chars.ts`) — 사용자 인지 글자(grapheme) 단위, 제목 제외, 공백·줄바꿈·조합 이모지·국기 각 1자
 - 갱신: 본문 입력·삭제 시 같은 렌더 사이클에, 글 전환 시 새 글 기준으로 즉시 갱신 (`useMemo(() => countChars(active.body), [active.body])`)
 - 가시성: Editor 자체가 글 미선택 시 렌더되지 않으므로 배지도 함께 사라짐 — 별도 조건 없음
@@ -518,7 +588,7 @@
 - **부제**: `프로필을 편집하고, 별명과 프로필 이미지를 업데이트하세요.` —
   `font-size: 14px; color: var(--text-tertiary); margin-bottom: 34px`
 - **프로필 행**: `gap: 18px; margin-bottom: 32px`
-  - 아바타(업로드 트리거, `<label>` + 숨김 파일 입력): `72×72px; border-radius: 50%; overflow: hidden; background: var(--tile-blue); color: var(--blue-700); font-size: 26px; font-weight: 600` — 이미지 또는 이니셜
+  - 아바타(업로드 트리거, `<label>` + 숨김 파일 입력): `72×72px; border-radius: 50%; overflow: hidden; background: var(--tile-blue); color: var(--tile-blue-text); font-size: 26px; font-weight: 600` — 이미지 또는 이니셜
   - 카메라 배지: 아바타 우하단 `right: -2px; bottom: -2px; 26×26px; border-radius: 50%; background: var(--surface-base); border: 1px solid var(--border-strong); font-size: 13px` — 내용 `📷`
   - 파일 입력: `accept="image/*"`, `display: none` — FileReader로 data URL 변환 후 즉시 반영
   - 닉네임 표시: `font-size: 16px; font-weight: 600; color: var(--text-primary)`
@@ -542,6 +612,8 @@ Lucide 스타일 라인 아이콘. 공통 속성: `viewBox="0 0 24 24"; fill: no
 | `SearchIcon` | 15px | **미사용** (정의만 존재) |
 | `TrashIcon` | 15px | **미사용** (정의만 존재) |
 | `ImageIcon` | 15px | **미사용** (정의만 존재) |
+| `SunIcon` | 16px | PostList 모드 전환 토글 — 다크 모드일 때 표시 (`aria-hidden`) |
+| `MoonIcon` | 16px | PostList 모드 전환 토글 — 라이트 모드일 때 표시 (`aria-hidden`) |
 | `GoogleIcon` | 18px | 로그인 버튼 (viewBox 0 0 48 48, 브랜드 4색 fill, `aria-hidden`) |
 
 > 삭제 버튼은 아이콘 대신 텍스트를 사용한다.
@@ -608,7 +680,11 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
    - 목록 로드 동안 목록 영역에 `불러오는 중…` 표시(빈 상태 문구는 로드 완료
      후에만). 조회 실패 시 `글을 불러오지 못했어요.` + `다시 시도`
    - 프로필: **로그인한 유저는 구글 계정 정보로 시드** — 별명 = `user_metadata.full_name`(없으면 `name`, 그다음 이메일 앞부분), 이메일 = 계정 이메일(수정 불가), 아바타 = 구글 프로필 사진(`avatar_url`/`picture`). 사용자가 바꾼 별명·아바타는 localStorage에 유지된다. `DEFAULT_PROFILE`(닉네임 `경현`, 이메일 `kyunghyun@gmail.com`)은 유저가 없을 때(예: 단위 테스트)만 쓰이는 폴백.
-   - 저장 키: 프로필 `mini-nook-v1`(글·선택 상태는 저장하지 않음). **인증은 localStorage가 아니라 Supabase 세션 쿠키**로 관리(구 `nook-auth` 플래그 제거).
+   - 저장 키: 프로필 `mini-nook-v1`(글·선택 상태는 저장하지 않음), 테마 `nook-theme`. **인증은 localStorage가 아니라 Supabase 세션 쿠키**로 관리(구 `nook-auth` 플래그 제거).
+9. **모드 전환** (002-dark-mode): 글 목록 헤더의 토글 클릭 → `<html data-theme>`
+   즉시 반전(전 화면 단일 리페인트) + `nook-theme` 저장. 재방문 시 저장값 복원
+   (`"light"`만 인정, 그 외 전부 기본 다크 — OS 설정 무시). 로그인 화면은 현재
+   모드 표시만. 이미 열린 다른 탭과의 실시간 동기화는 범위 밖
 
 ---
 
@@ -622,6 +698,10 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 - `@media (prefers-reduced-motion: reduce)` — 전 요소 전환·애니메이션 0.001ms로 축소
 - `<html lang="ko">`, 시맨틱 `<h1>`(로그인), viewport 메타 설정
 - 아바타 `<img>`에 `alt=""` (장식 취급)
+- 다크/라이트 모드: 기본 다크, 토글 버튼에 상태별 한국어 `title`/`aria-label`
+  (`라이트 모드로 전환`/`다크 모드로 전환`), 아이콘 SVG는 `aria-hidden`.
+  본문 텍스트 대비 — 다크 `#d6d5d1`/`#191919` 약 12:1, 라이트 `#1f1e1b`/`#ffffff`
+  약 16:1 (WCAG AA 충족)
 
 ### 현재 미구현
 
@@ -629,8 +709,7 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 - 글 목록 행이 `<div onClick>` — 키보드 탐색·role·tabindex 없음
 - 팝오버의 포커스 트랩, Esc 닫기, `role="dialog"`/`aria-expanded` 등 ARIA 상태
 - 반응형 레이아웃: 미디어쿼리 없음. 3분할 폭 고정(60 + 256 + 나머지). 로그인 카드만 `max-width: 100%`로 좁은 화면 대응
-- 다크 모드 (PRD상 P2 — 미구현)
-- 최소 터치 타깃 크기 보장, 색 대비 검증 문서화
+- 최소 터치 타깃 크기 보장, 전 상태 조합의 색 대비 검증 문서화 (본문 기본 대비만 §6 상단에 기록)
 
 ---
 
@@ -659,11 +738,14 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 
 ### 8.1 토큰 전수 대조
 
-- `globals.css` `:root`의 커스텀 프로퍼티 선언 수: **100개** (정규식 `^\s*--[a-z0-9-]+:` grep 카운트)
+- `globals.css` `:root`의 커스텀 프로퍼티 선언 수: **103개**
+  (정규식 `^\s*--[a-z0-9-]+:` grep 카운트는 `html[data-theme="dark"]` 재정의
+  22개를 포함해 총 125를 반환 — 신규 선언은 `:root`의 103개가 전부)
 - 본 문서 §2에 기록된 토큰 수: 색상 프리미티브 35 (gray 14 + blue 7 + green/amber/red 9 + tile 5)
-  + 시맨틱 25 (text 9 + surface 7 + border 4 + accent 4 + focus-ring 1)
+  + 시맨틱 28 (text 9 + surface 7 + border 4 + accent 4 + focus-ring 1 + 오버레이·틴트 3)
   + 타이포 21 (family 2 + size 9 + weight 4 + leading 4 + tracking 2)
-  + radius 6 + shadow 6 + 레이아웃 2 + 모션 5 = **100개 → 누락 0개 확인**
+  + radius 6 + shadow 6 + 레이아웃 2 + 모션 5 = **103개 → 누락 0개 확인**
+- 다크 재정의 22개(시맨틱 19 + 오버레이·틴트 3)는 §2.7 표와 1:1 대조 완료
 - `--font-pretendard`는 globals.css가 아닌 `next/font`(layout.tsx)가 주입하므로 위 카운트에 포함되지 않으며, §2.3에 별도 기록함
 
 ### 8.2 컴포넌트 파일별 재확인 (5개)
@@ -671,14 +753,23 @@ README 흐름도와 코드 대조 결과, 아래 플로우가 모두 코드와 �
 | 파일 | 확인 결과 |
 | --- | --- |
 | `IconRail.tsx` | 치수(60/34/38/30px), 상태 3종, 선택 링, 이니셜 폴백 모두 §4.1에 기록 — 누락 없음 |
-| `PostList.tsx` | 패널 256px, 헤더/검색/명령 입력/구분선/행 상태/시간·미리보기 규칙/빈 상태 2종 + 로딩·조회 실패·생성 실패 상태(002) §4.2에 기록 — 누락 없음 |
+| `PostList.tsx` | 패널 256px, 헤더(+모드 토글)/검색/명령 입력/구분선/행 상태/시간·미리보기 규칙/빈 상태 2종 + 로딩·조회 실패·생성 실패 상태(002) §4.2에 기록 — 누락 없음 |
 | `Editor.tsx` | 탑바 44px, 저장 표시 4종(002), 삭제 팝오버(228px), 제목 36px(상단 12px), 메타 줄(작성됨), 본문 textarea(340px, 1.75) §4.3에 기록 — 커버·이모지는 002에서 제거 |
 | `EmptyState.tsx` | 이모지 46px, 제목/설명/버튼 값 §4.4에 기록 — 누락 없음 |
-| `icons.tsx` | 6종 아이콘 공통 속성·크기·사용처(미사용 3종 포함) §4.7에 기록 — 누락 없음 |
+| `icons.tsx` | 8종 아이콘 공통 속성·크기·사용처(미사용 3종 포함) §4.7에 기록 — 누락 없음 |
 
 페이지 파일(`login`, `(app)/layout`, `(app)/page`, `mypage`)의 스타일도 §3·§4.5·§4.6에서 대조 완료.
 
-### 8.3 의도적 제외 항목
+### 8.3 다크 모드 업데이트 검증 (2026-07-16, 002-dark-mode)
+
+- §2.7 다크 표 22개 값 ↔ `globals.css` `html[data-theme="dark"]` 블록 1:1 대조 완료
+- 신규 시맨틱 토큰 3개(`--surface-overlay`, `--tile-blue-text`, `--danger-subtle`)의
+  라이트 값과 사용처(§2.2·§4.1·§4.3·§4.6) ↔ 코드 대조 완료 — 라이트 렌더 결과 불변
+- 토글 버튼 명세(§4.2) ↔ `PostList.tsx` 대조 완료. 동작은
+  `components/PostList.theme.test.tsx`·`lib/theme.test.ts`가 검증
+- 테마 부트스트랩(§2.6) ↔ `app/layout.tsx`·`lib/theme.ts` 대조 완료
+
+### 8.4 의도적 제외 항목
 
 1. **SVG path 데이터** (icons.tsx의 `d` 속성 좌표) — 아이콘 형태는 "Lucide 스타일 홈/플러스/검색/휴지통/이미지/구글 G"로 특정 가능하며, 좌표 나열은 디자인 명세 목적에 기여하지 않아 제외. 재구현 시 lucide.dev 동명 아이콘 사용으로 동일 결과 획득 가능 (Google G는 §4.5의 4색 값 기록)
 2. **시드 글의 본문 전문** — 디자인이 아닌 콘텐츠이므로 제목·이모지·커버·타임스탬프만 기록 (§5-8). 전문은 `lib/data.ts` `makeSeed()` 참조

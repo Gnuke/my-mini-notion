@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const pretendard = localFont({
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#fbfbfa",
+  themeColor: "#191919",
 };
 
 export default function RootLayout({
@@ -25,9 +26,20 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // data-theme="dark" is the SSR default; the inline script flips it to
+  // "light" before paint only when that preference was stored. The script
+  // may change the attribute before hydration — hence suppressHydrationWarning.
   return (
-    <html lang="ko" className={pretendard.variable}>
-      <body>{children}</body>
+    <html
+      lang="ko"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={pretendard.variable}
+    >
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }
